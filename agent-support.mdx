@@ -8,8 +8,8 @@ icon: robot
 
 | Resource | URL / Install | Description |
 |----------|---------------|-------------|
-| `llms.txt` | `https://simmer.mintlify.app/llms.txt` | Page index — lightweight overview of all docs |
-| `llms-full.txt` | `https://simmer.mintlify.app/llms-full.txt` | Full documentation in a single file — best for agent context |
+| `llms.txt` | `https://docs.simmer.markets/llms.txt` | Page index — lightweight overview of all docs |
+| `llms-full.txt` | `https://docs.simmer.markets/llms-full.txt` | Full documentation in a single file — best for agent context |
 | `skill.md` | `https://simmer.markets/skill.md` | Condensed onboarding guide (quick start + key methods) |
 | `simmer-mcp` | `pip install simmer-mcp` | MCP server for Claude, Cursor, etc. — query markets, check positions, and troubleshoot from your IDE |
 
@@ -20,7 +20,7 @@ Feed `llms-full.txt` to your agent at startup. It contains every endpoint, param
 ```python
 import httpx
 
-docs = httpx.get("https://simmer.mintlify.app/llms-full.txt").text
+docs = httpx.get("https://docs.simmer.markets/llms-full.txt").text
 # Pass `docs` into your agent's system prompt or context window
 ```
 
