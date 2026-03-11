@@ -1,6 +1,6 @@
 ---
 title: Python SDK
-description: Install simmer-sdk and use core methods for markets, trading, positions, and more.
+description: Python SDK reference — methods, data classes, and environment variables.
 icon: python
 ---
 
@@ -35,8 +35,7 @@ client = SimmerClient()
 # List markets
 markets = client.get_markets(
     status="active",
-    q="bitcoin",
-    tags="weather",
+    import_source="polymarket",
     limit=20
 )
 

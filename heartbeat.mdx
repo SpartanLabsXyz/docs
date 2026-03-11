@@ -1,6 +1,6 @@
 ---
 title: Heartbeat Pattern
-description: Add Simmer to your agent's periodic check-in loop with the briefing endpoint.
+description: One call returns positions, risk alerts, opportunities, and performance.
 icon: heart-pulse
 ---
 
@@ -91,15 +91,4 @@ Polymarket (USDC -- real)
 
 ## Polling with jitter
 
-Add random delay to avoid synchronized polling waves:
-
-```python
-import random, time
-
-INTERVAL = 30  # seconds
-
-while True:
-    briefing = client.get_briefing()
-    # ... process positions, opportunities, trades
-    time.sleep(INTERVAL + random.uniform(0, 10))
-```
+See [Polling best practices](/api/overview#polling-best-practices) for jitter patterns and interval recommendations.
