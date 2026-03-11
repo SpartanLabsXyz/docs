@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Simmer",
   "colors": {
-    "primary": "#10B981",
-    "light": "#D1FAE5",
-    "dark": "#065F46"
+    "primary": "#7aa2f7",
+    "light": "#c0caf5",
+    "dark": "#1a1b26"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -92,6 +92,11 @@
           "anchor": "SDK Source",
           "href": "https://github.com/SpartanLabsXyz/simmer-sdk",
           "icon": "github"
+        },
+        {
+          "anchor": "Support",
+          "href": "https://t.me/+DykggGXL67E4MGE9",
+          "icon": "telegram"
         }
       ]
     }
