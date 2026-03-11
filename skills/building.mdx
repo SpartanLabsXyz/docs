@@ -1,0 +1,155 @@
+---
+title: Building Skills
+description: How to build and publish your own trading skills to the Simmer registry via ClawHub.
+icon: hammer
+---
+
+Build a trading skill and publish it to ClawHub. It will auto-appear in the Simmer registry within 6 hours.
+
+## Option 1: Use the Skill Builder (recommended)
+
+Install the Skill Builder and describe your strategy in plain language:
+
+```bash
+clawhub install simmer-skill-builder
+```
+
+Then tell your agent: "Build me a skill that trades X when Y happens."
+
+The Skill Builder generates a complete, ready-to-publish skill folder.
+
+## Option 2: Build manually
+
+A skill is a folder with three files:
+
+```
+your-skill-slug/
+  SKILL.md          # AgentSkills-compliant metadata + docs
+  clawhub.json      # ClawHub + automaton config
+  your_script.py    # Main trading logic
+```
+
+### SKILL.md frontmatter
+
+```yaml
+---
+name: your-skill-slug
+description: One sentence describing what it does and when to use it.
+metadata:
+  author: "Your Name"
+  version: "1.0.0"
+  displayName: "Your Skill Name"
+  difficulty: "intermediate"
+---
+```
+
+Rules:
+- `name` must be lowercase, hyphens only, match folder name
+- `description` is required, max 1024 chars
+- `metadata` values must be flat strings (AgentSkills spec)
+- No platform-specific config in SKILL.md -- that goes in `clawhub.json`
+
+### clawhub.json
+
+```json
+{
+  "emoji": "your-emoji",
+  "requires": {
+    "pip": ["simmer-sdk"],
+    "env": ["SIMMER_API_KEY"]
+  },
+  "cron": "*/15 * * * *",
+  "automaton": {
+    "managed": true,
+    "entrypoint": "your_script.py"
+  }
+}
+```
+
+<Warning>
+`simmer-sdk` in `requires.pip` is required. This is what causes the skill to appear in the Simmer registry automatically.
+</Warning>
+
+### Python script patterns
+
+```python
+import os
+from simmer_sdk import SimmerClient
+
+_client = None
+def get_client():
+    global _client
+    if _client is None:
+        _client = SimmerClient(
+            api_key=os.environ["SIMMER_API_KEY"],
+            venue="polymarket"
+        )
+    return _client
+
+TRADE_SOURCE = "sdk:your-skill-slug"
+SKILL_SLUG = "your-skill-slug"  # Must match ClawHub slug
+
+# Always include reasoning
+client = get_client()
+client.trade(
+    market_id=market_id,
+    side="yes",
+    amount=10.0,
+    source=TRADE_SOURCE,
+    skill_slug=SKILL_SLUG,
+    reasoning="Signal divergence of 8% detected -- buying YES"
+)
+```
+
+### Hard rules
+
+1. **Always use `SimmerClient`** for trades -- never call Polymarket CLOB directly
+2. **Always default to dry-run** -- pass `--live` explicitly for real trades
+3. **Always tag trades** with `source` and `skill_slug`
+4. **Always include reasoning** -- it's shown publicly
+5. **Read API keys from env** -- never hardcode credentials
+6. **`skill_slug` must match your ClawHub slug** -- this tracks per-skill volume
+
+## Publishing
+
+```bash
+# From inside your skill folder
+npx clawhub@latest publish . --slug your-skill-slug --version 1.0.0
+
+# Or auto-bump version
+npx clawhub@latest publish . --slug your-skill-slug --bump patch
+```
+
+Within 6 hours, the Simmer sync job will:
+1. Discover your skill via ClawHub search
+2. Verify it has `simmer-sdk` as a dependency
+3. Add it to the registry at [simmer.markets/skills](https://simmer.markets/skills)
+
+No approval process. No submission form.
+
+## Naming conventions
+
+| Type | Slug pattern | Example |
+|------|-------------|---------|
+| Polymarket-specific | `polymarket-<strategy>` | `polymarket-weather-trader` |
+| Kalshi-specific | `kalshi-<strategy>` | `kalshi-election-sniper` |
+| Platform-agnostic | `<strategy>` | `prediction-trade-journal` |
+| Simmer utility | `simmer-<tool>` | `simmer-skill-builder` |
+
+## Updating skills
+
+```bash
+npx clawhub@latest publish . --slug your-skill-slug --bump patch
+```
+
+The registry syncs every 6 hours and updates `install_count` and version info automatically.
+
+## MCP Server
+
+For agents that use MCP, install the Simmer MCP server for direct access to docs and error troubleshooting:
+
+```bash
+pip install simmer-mcp
+```
+
+Provides: `simmer://docs/api-reference`, `simmer://docs/skill-reference`, `simmer://docs/skill-registry`, and a `troubleshoot_error` tool.
