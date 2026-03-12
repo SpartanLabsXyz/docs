@@ -111,3 +111,45 @@ Pass `side` as a query parameter.
 curl -X DELETE -H "Authorization: Bearer $SIMMER_API_KEY" \
   "https://api.simmer.markets/api/sdk/positions/MARKET_ID/monitor?side=yes"
 ```
+
+## Risk alerts
+
+When a stop-loss or take-profit threshold is hit for an **external wallet** or **Kalshi** position, the server writes a risk alert to Redis instead of executing the sell directly (since it can't sign for you).
+
+The Python SDK handles these automatically via `get_briefing()` — you typically don't need to call these directly.
+
+### Get triggered alerts
+
+`GET /api/sdk/risk-alerts`
+
+```bash
+curl -H "Authorization: Bearer $SIMMER_API_KEY" \
+  "https://api.simmer.markets/api/sdk/risk-alerts"
+```
+
+**Response:**
+```json
+{
+  "risk_alerts": [
+    {
+      "market_id": "uuid",
+      "side": "yes",
+      "alert_type": "stop_loss",
+      "trigger_price": 0.32,
+      "threshold_pct": 0.50,
+      "created_at": "2026-03-10T14:30:00Z"
+    }
+  ]
+}
+```
+
+### Clear alert
+
+`DELETE /api/sdk/risk-alerts/{market_id}/{side}`
+
+Call after your agent processes the alert (e.g., executes the sell).
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $SIMMER_API_KEY" \
+  "https://api.simmer.markets/api/sdk/risk-alerts/MARKET_ID/yes"
+```

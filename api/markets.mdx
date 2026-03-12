@@ -245,6 +245,71 @@ curl -H "Authorization: Bearer \$SIMMER_API_KEY" \
   "https://api.simmer.markets/api/sdk/markets/importable?venue=polymarket&min_volume=50000"
 ```
 
+## Opportunities
+
+`GET /api/sdk/markets/opportunities`
+
+Markets ranked by opportunity score — where AI-estimated prices diverge most from market prices.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `venue` | string | all | `polymarket`, `kalshi`, or `sim` |
+| `limit` | int | 10 | Max results |
+| `min_divergence` | float | 0.03 | Minimum absolute divergence (0-1) |
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -H "Authorization: Bearer $SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/markets/opportunities?venue=polymarket&limit=5"
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    # Not yet in SDK — use requests directly
+    import requests
+    resp = requests.get(
+        "https://api.simmer.markets/api/sdk/markets/opportunities",
+        headers={"Authorization": f"Bearer {api_key}"},
+        params={"venue": "polymarket", "limit": 5}
+    )
+    opportunities = resp.json()["opportunities"]
+    ```
+  </Tab>
+</Tabs>
+
+**Response:**
+```json
+{
+  "opportunities": [
+    {
+      "id": "uuid",
+      "question": "Will X happen?",
+      "url": "https://simmer.markets/uuid",
+      "current_probability": 0.65,
+      "external_price_yes": 0.58,
+      "divergence": 0.07,
+      "opportunity_score": 8,
+      "recommended_side": "yes",
+      "import_source": "polymarket",
+      "resolves_at": "2026-03-15T00:00:00Z"
+    }
+  ],
+  "count": 5,
+  "filters": {"venue": "polymarket", "min_divergence": 0.03}
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `divergence` | AI price minus market price. Positive = AI thinks YES is underpriced. |
+| `opportunity_score` | 0-10 composite score |
+| `recommended_side` | `yes` if divergence > 0, `no` otherwise |
+
+<Tip>
+This is a convenience wrapper around `/markets?sort=opportunity`. Use it when you want pre-filtered, ranked opportunities without manually sorting.
+</Tip>
+
 ## Check if market exists
 
 `GET /api/sdk/markets/check`
