@@ -30,8 +30,9 @@
             ]
           },
           {
-            "group": "Features",
+            "group": "Guides",
             "pages": [
+              "trading-guide",
               "heartbeat",
               "skills/building"
             ]
@@ -39,7 +40,6 @@
           {
             "group": "Reference",
             "pages": [
-              "sdk/overview",
               "agent-support",
               "faq"
             ]
@@ -73,10 +73,16 @@
         ]
       },
       {
-        "tab": "Open Source",
+        "tab": "Python SDK",
         "groups": [
           {
-            "group": "Open Source",
+            "group": "SDK Reference",
+            "pages": [
+              "sdk/overview"
+            ]
+          },
+          {
+            "group": "Contributing",
             "pages": [
               "open-source"
             ]
@@ -112,11 +118,7 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "https://t.me/+DykggGXL67E4MGE9"
-      },
-      {
-        "label": "SDK Repo",
+        "type": "github",
         "href": "https://github.com/SpartanLabsXyz/simmer-sdk"
       }
     ],

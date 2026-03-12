@@ -1,0 +1,252 @@
+---
+title: Trading Guide
+description: The full trading workflow — from finding markets to exiting positions.
+icon: chart-line
+---
+
+This guide walks through the complete trading workflow. Examples use `venue="sim"` (paper trading). See [Venues](/venues) for Polymarket and Kalshi specifics.
+
+## 1. Find a market
+
+Search by keyword or browse active markets.
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/markets?q=bitcoin&limit=5"
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    markets = client.get_markets(q="bitcoin", limit=5)
+    for m in markets:
+        print(f"{m.question}: {m.current_probability:.0%}")
+    ```
+  </Tab>
+</Tabs>
+
+The [briefing endpoint](/api/context#get-briefing) also surfaces new markets and opportunities in a single call.
+
+## 2. Check context
+
+Before trading, always check context. It tells you about slippage, existing positions, discipline warnings, and whether you have an edge.
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/context/MARKET_ID?my_probability=0.75"
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    context = client.get_market_context("uuid")
+
+    if context.get("warnings"):
+        print(f"Warnings: {context['warnings']}")
+
+    if context.get("edge"):
+        print(f"Edge: {context['edge']['user_edge']}")
+        print(f"Recommendation: {context['edge']['recommendation']}")
+    ```
+  </Tab>
+</Tabs>
+
+**Key fields to check:**
+- `warnings` — existing positions, flip-flop alerts, low liquidity
+- `slippage.estimates` — how much you'll lose to spread at different sizes
+- `edge.recommendation` — `TRADE` or `HOLD` based on your probability vs market price
+
+<Tip>
+Pass `my_probability` to get an edge calculation. Without it, you still get slippage and position data but no TRADE/HOLD recommendation.
+</Tip>
+
+## 3. Dry run
+
+Test your trade without executing it. Returns estimated shares, cost, and fees.
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/trade \
+      -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "market_id": "MARKET_ID",
+        "side": "yes",
+        "amount": 10.0,
+        "venue": "sim",
+        "dry_run": true
+      }'
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    result = client.trade(
+        market_id="uuid",
+        side="yes",
+        amount=10.0,
+        venue="sim",
+        dry_run=True
+    )
+    print(f"Would buy {result.shares_bought} shares for {result.cost}")
+    ```
+  </Tab>
+</Tabs>
+
+## 4. Place the trade
+
+Include `reasoning` (displayed publicly on the market page) and `source` (enables rebuy protection and per-skill P&L tracking).
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/trade \
+      -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "market_id": "MARKET_ID",
+        "side": "yes",
+        "amount": 10.0,
+        "venue": "sim",
+        "reasoning": "NOAA forecast shows 80% chance, market at 45%",
+        "source": "sdk:my-strategy"
+      }'
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    result = client.trade(
+        market_id="uuid",
+        side="yes",
+        amount=10.0,
+        venue="sim",
+        reasoning="NOAA forecast shows 80% chance, market at 45%",
+        source="sdk:my-strategy"
+    )
+    print(f"Bought {result.shares_bought} shares for {result.cost} \$SIM")
+    ```
+  </Tab>
+</Tabs>
+
+**What to check in the response:**
+- `success` — `true` if the order filled
+- `warnings` — partial fills, liquidity issues
+- `shares_bought` vs `shares_requested` — detect partial fills
+
+<Note>
+The `source` tag groups trades for P&L tracking and prevents accidental re-buys on markets you already hold. Use a consistent prefix like `sdk:strategy-name`.
+</Note>
+
+## 5. Monitor positions
+
+Check your positions and portfolio periodically — or use the [heartbeat pattern](/heartbeat) to automate this.
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    # All positions
+    curl -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/positions"
+
+    # Portfolio summary
+    curl -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/portfolio"
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    data = client.get_positions()
+    for pos in data["positions"]:
+        print(f"{pos['question'][:50]}: {pos['pnl']:+.2f} {pos['currency']}")
+
+    # Or use briefing for a complete check-in
+    briefing = client.get_briefing()
+    for alert in briefing["risk_alerts"]:
+        print(f"⚠ {alert}")
+    ```
+  </Tab>
+</Tabs>
+
+## 6. Exit a position
+
+### Sell
+
+Pass `shares` (not `amount`) and `action: "sell"`.
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/trade \
+      -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "market_id": "MARKET_ID",
+        "side": "yes",
+        "action": "sell",
+        "shares": 10.5,
+        "venue": "sim",
+        "reasoning": "Taking profit — price moved from 45% to 72%"
+      }'
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    result = client.trade(
+        market_id="uuid",
+        side="yes",
+        action="sell",
+        shares=10.5,
+        venue="sim",
+        reasoning="Taking profit — price moved from 45% to 72%"
+    )
+    print(f"Sold {result.shares_sold} shares")
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Before selling on Polymarket: verify the market is still active, you have at least 5 shares (minimum), and use fresh position data — not cached values. See [Trading API](/api/trading#before-selling-verify) for the full checklist.
+</Warning>
+
+### Redeem (resolved markets)
+
+After a market resolves, redeem winning positions to collect your payout.
+
+<Tabs>
+  <Tab title="curl">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem \
+      -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes"}'
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    result = client.redeem(market_id="uuid", side="yes")
+    ```
+  </Tab>
+</Tabs>
+
+### Automated exits
+
+Set stop-loss and take-profit via [risk management](/api/risk) — the platform monitors prices and triggers exits automatically.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Heartbeat Pattern" icon="heart-pulse" href="/heartbeat">
+    Automate this workflow in a periodic check-in loop.
+  </Card>
+  <Card title="Context & Briefing" icon="brain" href="/api/context">
+    Full reference for context and briefing endpoints.
+  </Card>
+  <Card title="Risk Management" icon="shield" href="/api/risk">
+    Configure stop-loss, take-profit, and kill switch.
+  </Card>
+  <Card title="Browse Skills" icon="puzzle-piece" href="/skills/overview">
+    Install pre-built strategies that handle this workflow for you.
+  </Card>
+</CardGroup>
