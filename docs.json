@@ -48,26 +48,147 @@
       },
       {
         "tab": "API Reference",
+        "openapi": "/openapi.json",
         "groups": [
           {
-            "group": "API Basics",
+            "group": "Overview",
             "pages": [
-              "api/overview"
+              "api/overview",
+              "api/errors"
             ]
           },
           {
-            "group": "Endpoints",
+            "group": "Agents",
             "pages": [
-              "api/agents",
-              "api/markets",
-              "api/trading",
-              "api/context",
-              "api/risk",
-              "api/alerts",
-              "api/webhooks",
-              "api/wallets",
-              "api/kalshi",
-              "api/errors"
+              "POST /api/sdk/agents/register",
+              "GET /api/sdk/agents/me",
+              "PATCH /api/sdk/agents/me/settings",
+              "GET /api/sdk/agents/claim/{claim_code}"
+            ]
+          },
+          {
+            "group": "Markets",
+            "pages": [
+              "GET /api/sdk/markets",
+              "GET /api/sdk/markets/{market_id}",
+              "GET /api/sdk/markets/{market_id}/history",
+              "GET /api/sdk/markets/opportunities",
+              "GET /api/sdk/fast-markets",
+              "GET /api/sdk/markets/importable",
+              "GET /api/sdk/markets/check",
+              "POST /api/sdk/markets/import",
+              "POST /api/sdk/markets/import/kalshi"
+            ]
+          },
+          {
+            "group": "Trading",
+            "pages": [
+              "POST /api/sdk/trade",
+              "POST /api/sdk/trades/batch",
+              "POST /api/sdk/redeem",
+              "POST /api/sdk/redeem/report",
+              "POST /api/sdk/copytrading/execute"
+            ]
+          },
+          {
+            "group": "Positions & Portfolio",
+            "pages": [
+              "GET /api/sdk/positions",
+              "GET /api/sdk/positions/expiring",
+              "GET /api/sdk/portfolio"
+            ]
+          },
+          {
+            "group": "Orders",
+            "pages": [
+              "GET /api/sdk/orders/open",
+              "DELETE /api/sdk/orders/{order_id}",
+              "DELETE /api/sdk/markets/{market_id}/orders",
+              "DELETE /api/sdk/orders"
+            ]
+          },
+          {
+            "group": "Context & Briefing",
+            "pages": [
+              "GET /api/sdk/context/{market_id}",
+              "GET /api/sdk/briefing"
+            ]
+          },
+          {
+            "group": "Risk Management",
+            "pages": [
+              "POST /api/sdk/positions/{market_id}/monitor",
+              "GET /api/sdk/positions/monitors",
+              "DELETE /api/sdk/positions/{market_id}/monitor",
+              "GET /api/sdk/risk-alerts",
+              "DELETE /api/sdk/risk-alerts/{market_id}/{side}"
+            ]
+          },
+          {
+            "group": "Settings",
+            "pages": [
+              "GET /api/sdk/settings",
+              "POST /api/sdk/settings"
+            ]
+          },
+          {
+            "group": "Alerts",
+            "pages": [
+              "POST /api/sdk/alerts",
+              "GET /api/sdk/alerts",
+              "DELETE /api/sdk/alerts/{alert_id}",
+              "GET /api/sdk/alerts/triggered"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "POST /api/sdk/webhooks",
+              "GET /api/sdk/webhooks",
+              "DELETE /api/sdk/webhooks/{webhook_id}",
+              "POST /api/sdk/webhooks/test"
+            ]
+          },
+          {
+            "group": "Wallets",
+            "pages": [
+              "GET /api/sdk/wallet/link/challenge",
+              "POST /api/sdk/wallet/link",
+              "POST /api/sdk/wallet/unlink",
+              "POST /api/sdk/wallet/broadcast-tx",
+              "GET /api/sdk/wallet/{wallet_address}/positions",
+              "GET /api/sdk/wallet/credentials/check"
+            ]
+          },
+          {
+            "group": "Kalshi",
+            "pages": [
+              "POST /api/sdk/trade/kalshi/quote",
+              "POST /api/sdk/trade/kalshi/submit"
+            ]
+          },
+          {
+            "group": "Skills",
+            "pages": [
+              "GET /api/sdk/skills",
+              "POST /api/sdk/skills",
+              "GET /api/sdk/skills/mine"
+            ]
+          },
+          {
+            "group": "Trades & Leaderboard",
+            "pages": [
+              "GET /api/sdk/trades",
+              "GET /api/leaderboard/all",
+              "GET /api/leaderboard/sdk-agents",
+              "GET /api/leaderboard/{venue}"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "POST /api/sdk/troubleshoot",
+              "GET /api/sdk/health"
             ]
           }
         ]
