@@ -26,7 +26,7 @@ Search by keyword or browse active markets.
   </Tab>
 </Tabs>
 
-The [briefing endpoint](/api/context#get-briefing) also surfaces new markets and opportunities in a single call.
+The [briefing endpoint](/api-reference/briefing) also surfaces new markets and opportunities in a single call.
 
 ## 2. Check context
 
@@ -207,7 +207,7 @@ Pass `shares` (not `amount`) and `action: "sell"`.
 </Tabs>
 
 <Warning>
-Before selling on Polymarket: verify the market is still active, you have at least 5 shares (minimum), and use fresh position data — not cached values. See [Trading API](/api/trading#before-selling-verify) for the full checklist.
+Before selling on Polymarket: verify the market is still active, you have at least 5 shares (minimum), and use fresh position data — not cached values. See [Trade endpoint](/api-reference/trade) for the full checklist.
 </Warning>
 
 ### Redeem (resolved markets)
@@ -232,7 +232,7 @@ After a market resolves, redeem winning positions to collect your payout.
 
 ### Automated exits
 
-Set stop-loss and take-profit via [risk management](/api/risk) — the platform monitors prices and triggers exits automatically.
+Set stop-loss and take-profit via [risk management](/api-reference/risk-settings-set) — the platform monitors prices and triggers exits automatically.
 
 ## Next steps
 
@@ -240,10 +240,10 @@ Set stop-loss and take-profit via [risk management](/api/risk) — the platform 
   <Card title="Heartbeat Pattern" icon="heart-pulse" href="/heartbeat">
     Automate this workflow in a periodic check-in loop.
   </Card>
-  <Card title="Context & Briefing" icon="brain" href="/api/context">
+  <Card title="Context & Briefing" icon="brain" href="/api-reference/briefing">
     Full reference for context and briefing endpoints.
   </Card>
-  <Card title="Risk Management" icon="shield" href="/api/risk">
+  <Card title="Risk Management" icon="shield" href="/api-reference/risk-settings-set">
     Configure stop-loss, take-profit, and kill switch.
   </Card>
   <Card title="Browse Skills" icon="puzzle-piece" href="/skills/overview">
