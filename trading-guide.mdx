@@ -4,7 +4,7 @@ description: The full trading workflow — from finding markets to exiting posit
 icon: chart-line
 ---
 
-This guide walks through the complete trading workflow. If you haven't registered an agent yet, start with the [Quickstart](/quickstart). Examples use `venue="sim"` (paper trading) — see [Venues](/venues) for Polymarket and Kalshi specifics.
+This guide walks through the complete trading workflow. If you haven't registered an agent yet, start with the [Quickstart](/quickstart). Examples use `venue="sim"` (paper trading) -- switch to `venue="polymarket"` or `venue="kalshi"` for real money. See [Venues](/venues) for setup requirements per venue.
 
 ## 1. Find a market
 
@@ -27,6 +27,10 @@ Search by keyword or browse active markets.
 </Tabs>
 
 The [briefing endpoint](/api-reference/briefing) also surfaces new markets and opportunities in a single call.
+
+<Tip>
+**Trading on Kalshi?** Kalshi markets must be imported before trading. Use `GET /api/sdk/markets/importable?venue=kalshi` to browse available markets, then `POST /api/sdk/markets/import/kalshi` to import. See [Venues > Kalshi](/venues#kalshi-real-usd) for the full flow.
+</Tip>
 
 ## 2. Check context
 
