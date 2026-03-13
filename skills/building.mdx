@@ -109,6 +109,55 @@ client.trade(
 4. **Always include reasoning** -- it's shown publicly
 5. **Read API keys from env** -- never hardcode credentials
 6. **`skill_slug` must match your ClawHub slug** -- this tracks per-skill volume
+7. **Frame as a remixable template** -- your SKILL.md should explain what the default signal is and how to remix it (see below)
+
+### Remixable template pattern
+
+Skills are templates, not black boxes. Your SKILL.md should include a callout like:
+
+```markdown
+> **This is a template.** The default signal is [your signal source] —
+> remix it with [alternative signals, different models, etc.].
+> The skill handles all the plumbing (market discovery, trade execution,
+> safeguards). Your agent provides the alpha.
+```
+
+The skill handles plumbing: market discovery, order execution, position management, and safeguards. The user's agent swaps in their own signal -- a different API, a custom model, additional data sources. Make it clear what's swappable and what's structural.
+
+### Recommended: check context before trading
+
+The `/context` endpoint provides trading discipline data -- flip-flop detection, slippage estimates, and edge analysis. We strongly recommend checking it before executing trades:
+
+```python
+def get_market_context(market_id, my_probability=None):
+    """Fetch context with safeguards and optional edge analysis."""
+    params = {}
+    if my_probability is not None:
+        params["my_probability"] = my_probability
+    return get_client().get_market_context(market_id, **params)
+
+# Before buying
+context = get_market_context(market_id, my_probability=0.85)
+
+# Check warnings
+trading = context.get("trading", {})
+flip_flop = trading.get("flip_flop_warning")
+if flip_flop and "SEVERE" in flip_flop:
+    print(f"Skipping: {flip_flop}")
+    # Don't trade -- you've been reversing too much
+
+slippage = context.get("slippage", {})
+if slippage.get("slippage_pct", 0) > 0.15:
+    print("Skipping: slippage too high")
+    # Market is too illiquid for this size
+
+# Check edge (requires my_probability)
+edge = context.get("edge_analysis", {})
+if edge.get("recommendation") == "HOLD":
+    print("Skipping: edge below threshold")
+```
+
+This isn't a hard rule -- some high-frequency skills skip context checks for speed. But for most strategies, checking context prevents costly mistakes like flip-flopping or trading into illiquid books.
 
 ## Publishing
 
