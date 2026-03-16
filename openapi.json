@@ -285,9 +285,17 @@
             "schema": {
               "type": "integer",
               "default": 50,
-              "maximum": 500,
-              "title": "Limit",
-              "description": "Max results to return (default 50, max 500). When results are truncated, response includes truncated: true and a total field."
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
             }
           },
           {
@@ -459,7 +467,7 @@
     "/api/sdk/markets/opportunities": {
       "get": {
         "summary": "Opportunities",
-        "description": "Get top trading opportunities for SDK agents.\n\nReturns markets ranked by opportunity score (edge + liquidity + urgency).\nUse this when an agent asks \"what markets should I trade?\"\n\nParameters:\n- venue: 'polymarket', 'kalshi', 'sim', or None for all\n- limit: Max markets to return (default 10, max 50)\n- min_divergence: Minimum absolute divergence threshold (default 0.03 = 3%)\n\nResponse includes recommended_side based on divergence direction:\n- divergence > 0: Simmer price > external \u2192 buy YES (Simmer thinks it's worth more)\n- divergence < 0: Simmer price < external \u2192 buy NO (Simmer thinks it's worth less)\n\nRequires API key in Authorization header.",
+        "description": "Get top trading opportunities for SDK agents.\n\nReturns markets ranked by opportunity score (edge + liquidity + urgency).\nUse this when an agent asks \"what markets should I trade?\"\n\nParameters:\n- venue: 'polymarket', 'kalshi', 'sim', or None for all\n- limit: Max markets to return (default 10, max 50)\n- min_divergence: Minimum absolute divergence threshold (default 0.03 = 3%)\n\nResponse includes recommended_side based on divergence direction:\n- divergence > 0: Simmer price > external \u2192 buy YES (Simmer thinks it's worth more)\n- divergence < 0: Simmer price < external \u2192 buy NO (Simmer thinks it's worth less)\n\nsignal_source indicates divergence origin:\n- 'oracle': AI multi-model forecast (activated markets with oracle cycles)\n- 'crowd': Crowd trading signal from sim agent activity against LMSR pool\n\nRequires API key in Authorization header.",
         "operationId": "api_sdk_opportunities_api_sdk_markets_opportunities_get",
         "parameters": [
           {
@@ -620,11 +628,11 @@
             "schema": {
               "type": "number",
               "minimum": 0,
-              "description": "Minimum 24h volume in USD (0 = no filter)",
+              "description": "Minimum 24h volume in USD (default $10k, floor $1k)",
               "default": 10000,
               "title": "Min Volume"
             },
-            "description": "Minimum 24h volume in USD (0 = no filter)"
+            "description": "Minimum 24h volume in USD (default $10k, floor $1k)"
           },
           {
             "name": "limit",
@@ -1058,6 +1066,48 @@
         },
         "x-mint": {
           "content": "<Note>The Python SDK calls this automatically after signing a redeem transaction. You only need this if you are building your own signing flow.</Note>"
+        }
+      }
+    },
+    "/api/sdk/copytrading/execute": {
+      "post": {
+        "summary": "Copytrading Execute",
+        "description": "Execute copytrading: mirror positions from target wallets.\n\nThis wraps the existing copytrading_strategy.py logic for SDK/skills usage.\nFetches target wallet positions via Dome API, calculates rebalance trades,\nand executes via SDK trade flow.\n\nFlow:\n1. Fetch positions from all target wallets\n2. Calculate size-weighted allocations (larger wallets = more influence)\n3. Skip markets with conflicting positions\n4. Apply Top N filter (concentrate on highest-conviction positions)\n5. Match to Simmer database (auto-import missing markets)\n6. Get user's current Polymarket positions (track which are from copytrading)\n7. Calculate rebalance trades\n8. Filter to buy-only if buy_only=True (default: prevents selling positions from other strategies)\n9. Detect whale exits if detect_whale_exits=True (sell positions whales no longer hold)\n10. Execute trades (unless dry_run=True)\n\nParameters:\n- wallets: List of wallet addresses to copy\n- top_n: Number of positions to mirror (None = auto based on balance)\n- max_usd_per_position: Max USD per position (default: 50)\n- dry_run: If true, return signals without executing\n- buy_only: If true (default), only buy to match targets. This prevents\n  copytrading from selling positions opened by other strategies (weather, etc.)\n  Set to false for full rebalancing mode.\n- detect_whale_exits: If true, sell positions that whales no longer hold.\n  Only affects positions originally opened by copytrading (tracks via source field).\n  Use with buy_only=True to accumulate + follow whale exits.\n\nRequires API key in Authorization header (rate limited: 30/minute).",
+        "operationId": "api_sdk_copytrading_execute_api_sdk_copytrading_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SDKCopytradingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SDKCopytradingResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-mint": {
+          "content": "<Warning>This endpoint executes real trades. Always test with `venue=sim` first.</Warning>"
         }
       }
     },
@@ -2584,48 +2634,6 @@
         }
       }
     },
-    "/api/sdk/copytrading/execute": {
-      "post": {
-        "summary": "Copytrading Execute",
-        "description": "Execute copytrading: mirror positions from target wallets.\n\nThis wraps the existing copytrading_strategy.py logic for SDK/skills usage.\nFetches target wallet positions via Dome API, calculates rebalance trades,\nand executes via SDK trade flow.\n\nFlow:\n1. Fetch positions from all target wallets\n2. Calculate size-weighted allocations (larger wallets = more influence)\n3. Skip markets with conflicting positions\n4. Apply Top N filter (concentrate on highest-conviction positions)\n5. Match to Simmer database (auto-import missing markets)\n6. Get user's current Polymarket positions (track which are from copytrading)\n7. Calculate rebalance trades\n8. Filter to buy-only if buy_only=True (default: prevents selling positions from other strategies)\n9. Detect whale exits if detect_whale_exits=True (sell positions whales no longer hold)\n10. Execute trades (unless dry_run=True)\n\nParameters:\n- wallets: List of wallet addresses to copy\n- top_n: Number of positions to mirror (None = auto based on balance)\n- max_usd_per_position: Max USD per position (default: 50)\n- dry_run: If true, return signals without executing\n- buy_only: If true (default), only buy to match targets. This prevents\n  copytrading from selling positions opened by other strategies (weather, etc.)\n  Set to false for full rebalancing mode.\n- detect_whale_exits: If true, sell positions that whales no longer hold.\n  Only affects positions originally opened by copytrading (tracks via source field).\n  Use with buy_only=True to accumulate + follow whale exits.\n\nRequires API key in Authorization header (rate limited: 30/minute).",
-        "operationId": "api_sdk_copytrading_execute_api_sdk_copytrading_execute_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SDKCopytradingRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SDKCopytradingResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "x-mint": {
-          "content": "<Warning>This endpoint executes real trades. Always test with `venue=sim` first.</Warning>"
-        }
-      }
-    },
     "/api/sdk/health": {
       "get": {
         "summary": "Health",
@@ -2794,6 +2802,17 @@
               }
             ],
             "title": "Creator Rewards"
+          },
+          "wallet_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wallet Address"
           }
         },
         "type": "object",
@@ -4365,6 +4384,15 @@
             "type": "array",
             "title": "Trades"
           },
+          "skipped_markets": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Skipped Markets",
+            "default": []
+          },
           "summary": {
             "type": "string",
             "title": "Summary"
@@ -5576,6 +5604,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "skill_md_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill Md Body"
           }
         },
         "type": "object",
