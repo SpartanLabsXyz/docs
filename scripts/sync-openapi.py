@@ -116,7 +116,10 @@ CONTENT_INJECTIONS = {
     "/api/sdk/markets": {
         "get": (
             "<Tip>Need `time_to_resolution`, slippage, or flip-flop detection? "
-            "Use the [context endpoint](/api/context) \u2014 those fields are not on `/markets`.</Tip>"
+            "Use the [context endpoint](/api/context) \u2014 those fields are not on `/markets`.</Tip>\n\n"
+            "**Limit:** Max 500 results per request (default 50). "
+            "When results are truncated, the response includes `\"truncated\": true` and a `total` field showing how many matched. "
+            "Use `tags`, `q`, or `venue` filters to narrow large result sets."
         ),
     },
     "/api/sdk/markets/import": {
