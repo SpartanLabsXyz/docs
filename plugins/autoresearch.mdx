@@ -1,0 +1,140 @@
+---
+title: Autoresearch
+description: Autonomous skill optimization — your agent mutates skill config, measures P&L, and keeps what works.
+icon: flask
+---
+
+<Info>
+**Coming soon.** Autoresearch is in research preview and not yet available. Requires a [Simmer Pro](https://simmer.markets) plan.
+</Info>
+
+Autoresearch lets your agent optimize its own trading skills. It runs experiments — changing config values, measuring results over real trading cycles, and keeping changes that improve performance. Think of it as automated A/B testing for your trading strategy.
+
+## How it works
+
+```
+init_experiment → run_experiment (N cycles) → log_experiment → repeat
+```
+
+1. **Init** — Pick a skill and a hypothesis (e.g., "lower min_edge from 0.05 to 0.03")
+2. **Run** — Execute the skill with the new config for several trading cycles
+3. **Log** — Record results (P&L, win rate, trade count) and decide: keep or revert
+4. **Repeat** — Try the next hypothesis
+
+Your agent drives the loop — autoresearch provides the tools, your agent provides the reasoning.
+
+## Install
+
+```bash
+openclaw plugins install simmer-autoresearch
+```
+
+## Config
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `apiKey` | `$SIMMER_API_KEY` | Simmer API key. Optional if env var is set. |
+| `apiUrl` | `https://api.simmer.markets` | API base URL |
+| `maxExperiments` | `50` | Max experiments per session. Prevents runaway loops. `0` = unlimited. |
+
+Example `plugins.json`:
+
+```json
+{
+  "simmer-autoresearch": {
+    "maxExperiments": 30
+  }
+}
+```
+
+## Tools
+
+The plugin registers three tools your agent can call:
+
+### `init_experiment`
+
+Start a new experiment session for a skill.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `skill_slug` | Yes | ClawHub slug of the skill to optimize (e.g., `polymarket-fast-loop`) |
+| `hypothesis` | Yes | What you're testing (e.g., "increase volatility threshold to 0.7") |
+| `config_changes` | No | Key-value pairs of config changes to apply |
+
+### `run_experiment`
+
+Execute the skill under test. Call this repeatedly (once per trading cycle) to collect data.
+
+Returns the skill's output from that cycle — trades made, signals found, errors hit.
+
+### `log_experiment`
+
+Record experiment results and decide whether to keep or revert.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `status` | Yes | `keep`, `discard`, or `crash` |
+| `metrics` | No | Observed metrics (P&L, win rate, trade count, etc.) |
+| `notes` | No | Agent's reasoning for the decision |
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/autoresearch status` | Current skill, experiment count, keep rate, budget remaining, pause state |
+| `/autoresearch reset` | Clear state and start fresh (clears pause if paused) |
+
+## Safety features
+
+### Crash protection
+
+- **Baseline crash** — If the very first experiment in a session crashes, autoresearch pauses automatically. This usually means the skill is misconfigured.
+- **Consecutive crashes** — 3 crashes in a row triggers auto-pause. Your agent can't run more experiments until the issue is investigated.
+- **Recovery** — `init_experiment` (new session) or `/autoresearch reset` clears the pause.
+
+### Budget caps
+
+Experiments are capped at `maxExperiments` (default 50) per session. At 80% of the cap, your agent gets a warning. At the limit, `run_experiment` is blocked.
+
+Set `maxExperiments: 0` to disable the cap (not recommended for unattended agents).
+
+## Experiment persistence
+
+Results are saved in two places:
+
+- **Local JSONL** — `{stateDir}/autoresearch/experiments.jsonl` for offline access
+- **Dashboard API** — Synced to your Simmer dashboard for viewing experiment history
+
+Git auto-commits on `keep` decisions so you can track what changed and roll back if needed.
+
+## Example workflow
+
+A typical autoresearch session looks like:
+
+```
+Agent: "I'll optimize polymarket-fast-loop. Hypothesis: lowering min_edge
+       from 0.05 to 0.03 will catch more opportunities."
+
+→ init_experiment(skill_slug="polymarket-fast-loop",
+                  hypothesis="lower min_edge to 0.03",
+                  config_changes={"min_edge": 0.03})
+
+→ run_experiment() × 5 cycles
+
+Agent: "5 cycles complete. 3 trades found (vs 0 with old config).
+       Net P&L: +$2.40. Keeping this change."
+
+→ log_experiment(status="keep",
+                 metrics={"pnl": 2.4, "trades": 3, "cycles": 5},
+                 notes="3x more opportunities with lower edge threshold")
+```
+
+## API endpoints
+
+These endpoints power the plugin's server-side sync. You don't call them directly — the plugin handles it.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/sdk/autoresearch/experiments` | List experiment history |
+| `POST /api/sdk/autoresearch/experiments` | Sync experiment results |
+| `GET /api/sdk/autoresearch/experiments/latest` | Latest experiment |

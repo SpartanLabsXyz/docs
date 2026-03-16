@@ -25,6 +25,7 @@
             "pages": [
               "agents",
               "skills/overview",
+              "plugins/overview",
               "venues",
               "wallets"
             ]
@@ -34,7 +35,9 @@
             "pages": [
               "trading-guide",
               "heartbeat",
-              "skills/building"
+              "skills/building",
+              "plugins/autoresearch",
+              "plugins/reactor"
             ]
           },
           {

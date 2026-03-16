@@ -1,0 +1,77 @@
+---
+title: Reactor
+description: Real-time whale activity monitor — react to whale trades as they happen.
+icon: bolt
+---
+
+<Info>
+**Coming soon.** Reactor is in development and not yet available for install.
+</Info>
+
+Reactor monitors whale activity on Polymarket in real-time via WebSocket and triggers your trading skills in response. Instead of running skills on a timer and hoping you catch something, reactor fires skills the moment a whale makes a move.
+
+## How it works
+
+```
+PolyNode WS → reactor plugin → dispatch
+                                 ├── autoReact: execute skill immediately (no LLM)
+                                 └── passive: inject events into agent context (LLM decides)
+```
+
+1. **Connect** — Plugin maintains a persistent WebSocket to PolyNode (mempool-level Polymarket data)
+2. **Filter** — Events filtered against your watchlist (specific wallets, minimum trade sizes)
+3. **Dispatch** — Either run a skill immediately (autoReact) or buffer events for your agent to reason about (passive)
+
+## Dispatch modes
+
+### Passive (default)
+
+Events buffer in memory and get injected into your agent's context at the start of each cycle:
+
+```
+Reactor: 3 whale events since last cycle
+- 0xABC... (SharkyBoi) BUY $12K on "Will ETH hit $4K" @ 0.45
+- 0xDEF... BUY $8K on "Trump wins popular vote" @ 0.62
+- 0xABC... (SharkyBoi) SELL $5K on "Fed rate cut June" @ 0.71
+
+Your installed skills can act on these events.
+React or ignore?
+```
+
+Your agent decides what to do — invoke a skill, ask questions, or ignore.
+
+### autoReact
+
+Events trigger skill execution immediately, bypassing the LLM. Fastest response time, but no nuanced reasoning.
+
+Includes a circuit breaker: 3 consecutive skill failures auto-downgrades to passive mode.
+
+## Data source
+
+Reactor uses [PolyNode](https://polynode.dev) for mempool-level Polymarket data — whale trades are visible 2-5 seconds before on-chain confirmation.
+
+You'll need a PolyNode API key (free tier is sufficient for one agent). Set it up in the Simmer dashboard reactor tab.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/reactor status` | Connection state, event count, dispatch mode, watchlist size |
+| `/reactor pause` | Pause event processing (WS stays connected) |
+| `/reactor resume` | Resume processing (also clears autoReact circuit breaker) |
+| `/reactor events [n]` | Show last n events (default 10) |
+
+## Config
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `dispatch_mode` | `passive` | `passive` or `autoReact` |
+| `autoReact_skill` | `polymarket-copytrading` | Skill to invoke in autoReact mode |
+| `autoReact_max_usd` | `50` | Max trade size per autoReact execution |
+| `buffer_max` | `100` | Max events buffered for passive injection |
+
+## Requirements
+
+- **Simmer Pro** plan
+- **PolyNode API key** (free tier, provisioned via dashboard)
+- **OpenClaw** agent runtime
