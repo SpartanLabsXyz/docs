@@ -1,6 +1,6 @@
 ---
 title: Reactor
-description: Real-time whale activity monitor — react to whale trades as they happen.
+description: Real-time market event stream — turn live Polymarket activity into trading signals.
 icon: bolt
 ---
 
@@ -8,19 +8,45 @@ icon: bolt
 **Coming soon.** Reactor is in development and not yet available for install.
 </Info>
 
-Reactor monitors whale activity on Polymarket in real-time via WebSocket and triggers your trading skills in response. Instead of running skills on a timer and hoping you catch something, reactor fires skills the moment a whale makes a move.
+Reactor is a real-time event stream plugin for OpenClaw. It connects to live Polymarket settlement data via WebSocket — trades are visible seconds before on-chain confirmation — and routes events to your agent or skills.
+
+Instead of running skills on a timer and hoping you catch something, reactor fires the moment something happens.
 
 ## How it works
 
 ```
-WebSocket feed → reactor plugin → dispatch
-                                   ├── autoReact: execute skill immediately (no LLM)
-                                   └── passive: inject events into agent context (LLM decides)
+Real-time settlement feed → reactor plugin → dispatch
+                                              ├── autoReact: execute skill immediately (no LLM)
+                                              └── passive: inject events into agent context (LLM decides)
 ```
 
-1. **Connect** — Plugin maintains a persistent WebSocket to a real-time Polymarket data feed
-2. **Filter** — Events filtered against your watchlist (specific wallets, minimum trade sizes)
+1. **Connect** — Plugin maintains a persistent WebSocket to a real-time Polymarket settlement feed (mempool-level data)
+2. **Filter** — Events filtered server-side and client-side against your watchlist (specific wallets, minimum trade sizes)
 3. **Dispatch** — Either run a skill immediately (autoReact) or buffer events for your agent to reason about (passive)
+
+## What reactor enables
+
+Reactor provides a raw event stream. What your agent does with it depends on your skills and strategy.
+
+### Whale copytrading
+
+Track specific wallets and copy their trades as they happen. In autoReact mode, the copytrading skill fires within seconds of a whale's trade — before on-chain confirmation.
+
+### Flow-based signals
+
+Any skill can consume reactor events as an input signal. A whale dumping $50K on "NO" is useful context for momentum, sentiment, or research-driven strategies — not just copytrading.
+
+### Smart entry timing
+
+If your agent already wants to trade a market, reactor events can provide confirmation. "I want to buy YES on X" + "whale just bought $20K YES on X" = higher conviction entry.
+
+### Market discovery
+
+Whales trading on markets your agent hasn't seen yet is a discovery signal. Reactor can surface new opportunities that your other skills can evaluate.
+
+### Risk alerts
+
+Detect when multiple tracked wallets exit the same market. That's a risk signal your agent should know about, even if it doesn't copy their trades.
 
 ## Dispatch modes
 
@@ -46,11 +72,21 @@ Events trigger skill execution immediately, bypassing the LLM. Fastest response 
 
 Includes a circuit breaker: 3 consecutive skill failures auto-downgrades to passive mode.
 
-## Data source
+## Event data
 
-Reactor streams real-time Polymarket fill data via WebSocket — whale trades are visible seconds before on-chain confirmation.
+Each settlement event includes:
 
-Data source configuration is handled in the Simmer dashboard reactor tab.
+| Field | Description |
+|-------|-------------|
+| `whale_wallet` | Taker wallet address |
+| `whale_label` | Your label for this wallet (from watchlist) |
+| `side` | BUY or SELL |
+| `size` | Trade size in shares |
+| `price` | Execution price (0.0–1.0) |
+| `market_title` | Human-readable market name |
+| `market_slug` | Polymarket URL slug |
+| `market_id` | Condition ID (unique market identifier) |
+| `timestamp` | When the trade was detected (pre-confirmation) |
 
 ## Commands
 
@@ -73,5 +109,5 @@ Data source configuration is handled in the Simmer dashboard reactor tab.
 ## Requirements
 
 - **Simmer Pro** plan
-- **Reactor data feed** (provisioned via dashboard)
 - **OpenClaw** agent runtime
+- Watchlist configured in the Simmer dashboard reactor tab
