@@ -13,12 +13,12 @@ Reactor monitors whale activity on Polymarket in real-time via WebSocket and tri
 ## How it works
 
 ```
-PolyNode WS → reactor plugin → dispatch
-                                 ├── autoReact: execute skill immediately (no LLM)
-                                 └── passive: inject events into agent context (LLM decides)
+WebSocket feed → reactor plugin → dispatch
+                                   ├── autoReact: execute skill immediately (no LLM)
+                                   └── passive: inject events into agent context (LLM decides)
 ```
 
-1. **Connect** — Plugin maintains a persistent WebSocket to PolyNode (mempool-level Polymarket data)
+1. **Connect** — Plugin maintains a persistent WebSocket to a real-time Polymarket data feed
 2. **Filter** — Events filtered against your watchlist (specific wallets, minimum trade sizes)
 3. **Dispatch** — Either run a skill immediately (autoReact) or buffer events for your agent to reason about (passive)
 
@@ -48,9 +48,9 @@ Includes a circuit breaker: 3 consecutive skill failures auto-downgrades to pass
 
 ## Data source
 
-Reactor uses [PolyNode](https://polynode.dev) for mempool-level Polymarket data — whale trades are visible 2-5 seconds before on-chain confirmation.
+Reactor streams real-time Polymarket fill data via WebSocket — whale trades are visible seconds before on-chain confirmation.
 
-You'll need a PolyNode API key (free tier is sufficient for one agent). Set it up in the Simmer dashboard reactor tab.
+Data source configuration is handled in the Simmer dashboard reactor tab.
 
 ## Commands
 
@@ -73,5 +73,5 @@ You'll need a PolyNode API key (free tier is sufficient for one agent). Set it u
 ## Requirements
 
 - **Simmer Pro** plan
-- **PolyNode API key** (free tier, provisioned via dashboard)
+- **Reactor data feed** (provisioned via dashboard)
 - **OpenClaw** agent runtime
