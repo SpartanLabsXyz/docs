@@ -4,9 +4,9 @@ description: Autonomous skill optimization — your agent mutates skill config, 
 icon: flask
 ---
 
-<Info>
-**Coming soon.** Autoresearch is in research preview and not yet available. Requires a [Simmer Pro](https://simmer.markets) plan.
-</Info>
+<Note>
+**Pro feature.** Autoresearch requires a [Simmer Pro](https://simmer.markets) plan. Free users get a 403 when calling autoresearch API endpoints.
+</Note>
 
 Autoresearch lets your agent optimize its own trading skills. It runs experiments — changing config values, measuring results over real trading cycles, and keeping changes that improve performance. Think of it as automated A/B testing for your trading strategy.
 
@@ -16,10 +16,11 @@ Autoresearch lets your agent optimize its own trading skills. It runs experiment
 init_experiment → run_experiment (N cycles) → log_experiment → repeat
 ```
 
-1. **Init** — Pick a skill and a hypothesis (e.g., "lower min_edge from 0.05 to 0.03")
+1. **Init** — Pick a skill and a metric (e.g., P&L, edge %, trade count)
 2. **Run** — Execute the skill with the new config for several trading cycles
-3. **Log** — Record results (P&L, win rate, trade count) and decide: keep or revert
-4. **Repeat** — Try the next hypothesis
+3. **Log** — Record results and decide: keep or revert. Keeps auto-commit to git.
+4. **Backtest** — Replay historical trades against new config thresholds (fast config tuning)
+5. **Repeat** — Try the next hypothesis
 
 Your agent drives the loop — autoresearch provides the tools, your agent provides the reasoning.
 
@@ -28,6 +29,8 @@ Your agent drives the loop — autoresearch provides the tools, your agent provi
 ```bash
 openclaw plugins install simmer-autoresearch
 ```
+
+Requires `SIMMER_API_KEY` env var set (or pass `apiKey` in plugin config).
 
 ## Config
 
@@ -49,38 +52,97 @@ Example `plugins.json`:
 
 ## Tools
 
-The plugin registers three tools your agent can call:
+The plugin registers four tools your agent can call:
 
 ### `init_experiment`
 
-Start a new experiment session for a skill.
+Configure an experiment session. Call again to start a new segment with a fresh baseline.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
+| `name` | Yes | Human-readable session name |
 | `skill_slug` | Yes | ClawHub slug of the skill to optimize (e.g., `polymarket-fast-loop`) |
-| `hypothesis` | Yes | What you're testing (e.g., "increase volatility threshold to 0.7") |
-| `config_changes` | No | Key-value pairs of config changes to apply |
+| `metric_name` | Yes | Primary metric to track (e.g., `pnl`, `avg_edge`) |
+| `metric_unit` | No | Unit label (e.g., `$SIM`, `%`) |
+| `direction` | No | `higher` or `lower` — which direction is better (default: `higher`) |
 
 ### `run_experiment`
 
-Execute the skill under test. Call this repeatedly (once per trading cycle) to collect data.
+Execute a command (usually the skill), capture output and timing.
 
-Returns the skill's output from that cycle — trades made, signals found, errors hit.
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `command` | Yes | Shell command to run (e.g., `python skills/polymarket-fast-loop/fastloop_trader.py`) |
+| `timeout` | No | Timeout in seconds (default: 300) |
 
 ### `log_experiment`
 
-Record experiment results and decide whether to keep or revert.
+Record experiment results. `keep` auto-commits to git. `discard`/`crash` reverts working directory.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `status` | Yes | `keep`, `discard`, or `crash` |
-| `metrics` | No | Observed metrics (P&L, win rate, trade count, etc.) |
-| `notes` | No | Agent's reasoning for the decision |
+| `metric` | Yes | Primary metric value (number) |
+| `description` | Yes | What was tried and what happened |
+| `secondary_metrics` | No | Additional metrics as key-value dict |
+
+### `backtest_experiment`
+
+Replay historical trades against new config thresholds without live execution. Returns simulated P&L in seconds — use this for fast config tuning before committing to live experiments.
+
+<Note>
+Backtest requires trades with `signal_data`. Skills must pass structured signal data on `client.trade()` calls (SDK 0.9.17+). All official Simmer skills include signal_data as of March 2026.
+</Note>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `skill_slug` | Yes | Skill to backtest |
+| `config` | Yes | Config overrides to test (e.g., `{"min_edge": 0.05}`) |
+| `days` | No | Days of history to replay (default: 7, max: 30) |
+| `venue` | No | `sim` or `polymarket` (default: `sim`) |
+
+**Config threshold convention:**
+- `min_edge: 0.05` → only include trades where `signal_data.edge >= 0.05`
+- `max_probability: 0.85` → only include trades where `signal_data.probability <= 0.85`
+- Bare keys (e.g., `edge: 0.10`) → treated as min threshold
+
+## Signal Data
+
+Skills can include structured signal data on each trade to enable backtest replay. This is optional — trades work fine without it — but required for the `backtest_experiment` tool.
+
+```python
+result = client.trade(
+    market_id, "yes", 10.0,
+    reasoning="NOAA forecasts 35°F, bucket underpriced at 12%",
+    signal_data={
+        "edge": 0.15,
+        "confidence": 0.8,
+        "signal_source": "noaa_forecast",
+        "forecast_temp": 35,
+        "bucket_range": "30-39",
+    },
+    skill_slug="polymarket-weather-trader",
+)
+```
+
+**Common fields** (recommended for all skills):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `edge` | float | Perceived edge over market price |
+| `confidence` | float 0-1 | Agent confidence in the trade |
+| `signal_source` | string | What triggered the signal |
+
+Additional skill-specific fields are freeform. Values must be strings or numbers (flat dict, no nesting).
+
+Signal data is **private** — only visible to the trade owner via authenticated API calls. Never exposed publicly.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
+| `/autoresearch <skill>` | Start or resume autoresearch mode for a skill |
+| `/autoresearch off` | Stop autoresearch mode |
 | `/autoresearch status` | Current skill, experiment count, keep rate, budget remaining, pause state |
 | `/autoresearch reset` | Clear state and start fresh (clears pause if paused) |
 
@@ -98,36 +160,18 @@ Experiments are capped at `maxExperiments` (default 50) per session. At 80% of t
 
 Set `maxExperiments: 0` to disable the cap (not recommended for unattended agents).
 
+### Metric verification
+
+The plugin cross-checks self-reported P&L metrics against the Simmer API. If the agent-reported metric diverges significantly from actual trade data, a warning is logged. This prevents metric gaming — the agent can't inflate results by changing how metrics are calculated.
+
 ## Experiment persistence
 
 Results are saved in two places:
 
-- **Local JSONL** — `{stateDir}/autoresearch/experiments.jsonl` for offline access
-- **Dashboard API** — Synced to your Simmer dashboard for viewing experiment history
+- **Local JSONL** — `autoresearch.jsonl` in your working directory for offline access
+- **Dashboard API** — Synced to your Simmer dashboard (Pro users see an Autoresearch tab)
 
 Git auto-commits on `keep` decisions so you can track what changed and roll back if needed.
-
-## Example workflow
-
-A typical autoresearch session looks like:
-
-```
-Agent: "I'll optimize polymarket-fast-loop. Hypothesis: lowering min_edge
-       from 0.05 to 0.03 will catch more opportunities."
-
-→ init_experiment(skill_slug="polymarket-fast-loop",
-                  hypothesis="lower min_edge to 0.03",
-                  config_changes={"min_edge": 0.03})
-
-→ run_experiment() × 5 cycles
-
-Agent: "5 cycles complete. 3 trades found (vs 0 with old config).
-       Net P&L: +$2.40. Keeping this change."
-
-→ log_experiment(status="keep",
-                 metrics={"pnl": 2.4, "trades": 3, "cycles": 5},
-                 notes="3x more opportunities with lower edge threshold")
-```
 
 ## API endpoints
 
@@ -135,6 +179,8 @@ These endpoints power the plugin's server-side sync. You don't call them directl
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/sdk/autoresearch/experiments` | List experiment history |
 | `POST /api/sdk/autoresearch/experiments` | Sync experiment results |
-| `GET /api/sdk/autoresearch/experiments/latest` | Latest experiment |
+| `GET /api/sdk/autoresearch/experiments` | List experiment history |
+| `GET /api/sdk/autoresearch/state` | Resume state for plugin startup |
+| `POST /api/sdk/autoresearch/backtest` | Replay trades against new config |
+| `GET /api/sdk/outcomes` | Trade outcome summary (metric verification) |
