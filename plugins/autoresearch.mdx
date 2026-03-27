@@ -24,6 +24,8 @@ init_experiment → run_experiment (N cycles) → log_experiment → repeat
 
 Your agent drives the loop — autoresearch provides the tools, your agent provides the reasoning.
 
+While autoresearch is active (i.e., `autoresearch.md` exists in the workspace), the plugin automatically injects experiment progress into every LLM prompt — experiment count, baseline and best metrics, confidence score, and the 5 most recent experiments. Your agent always has current session context without needing to re-read files.
+
 ## Install
 
 ```bash
@@ -56,14 +58,14 @@ The plugin registers four tools your agent can call:
 
 ### `init_experiment`
 
-Configure an experiment session. Call again to start a new segment with a fresh baseline.
+Configure an experiment session. Call again to start a new segment with a fresh baseline. If no local `autoresearch.jsonl` exists and an API key is set, the plugin attempts to resume from the Simmer API — recovering session state after crashes or machine migrations.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `name` | Yes | Human-readable session name |
 | `skill_slug` | Yes | ClawHub slug of the skill to optimize (e.g., `polymarket-fast-loop`) |
 | `metric_name` | Yes | Primary metric to track (e.g., `pnl`, `avg_edge`) |
-| `metric_unit` | No | Unit label (e.g., `$SIM`, `%`) |
+| `metric_unit` | No | Unit label (default: `$`). Set explicitly for non-dollar metrics (e.g., `%` for edge). |
 | `direction` | No | `higher` or `lower` — which direction is better (default: `higher`) |
 
 ### `run_experiment`
@@ -73,18 +75,24 @@ Execute a command (usually the skill), capture output and timing.
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `command` | Yes | Shell command to run (e.g., `python skills/polymarket-fast-loop/fastloop_trader.py`) |
-| `timeout` | No | Timeout in seconds (default: 300) |
+| `timeout_seconds` | No | Timeout in seconds (default: 600) |
 
 ### `log_experiment`
 
-Record experiment results. `keep` auto-commits to git. `discard`/`crash` reverts working directory.
+Record experiment results. `keep` auto-commits to git via `git add -A && git commit`. On `discard`/`crash`, the plugin tells the agent to revert with `git checkout -- .` — the agent executes the revert, not the plugin.
+
+<Warning>
+Auto-commit uses `git add -A`, which stages **all** files including untracked ones. Make sure your workspace doesn't contain `.env` files, credentials, or large build artifacts — use `.gitignore` to exclude them.
+</Warning>
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
+| `commit` | Yes | Git commit hash (short, 7 chars) |
+| `metric` | Yes | Primary metric value (number). Use 0 for crashes. |
 | `status` | Yes | `keep`, `discard`, or `crash` |
-| `metric` | Yes | Primary metric value (number) |
 | `description` | Yes | What was tried and what happened |
-| `secondary_metrics` | No | Additional metrics as key-value dict |
+| `metrics` | No | Secondary metrics as key-value dict (e.g., `{"trades": 5, "win_rate": 0.6}`) |
+| `force` | No | Set `true` to allow adding a new secondary metric not previously tracked |
 
 ### `backtest_experiment`
 
@@ -142,9 +150,9 @@ Signal data is **private** — only visible to the trade owner via authenticated
 | Command | Description |
 |---------|-------------|
 | `/autoresearch <skill>` | Start or resume autoresearch mode for a skill |
-| `/autoresearch off` | Stop autoresearch mode |
+| `/autoresearch off` | Signal the agent to stop looping (soft stop — no hard pause mechanism) |
 | `/autoresearch status` | Current skill, experiment count, keep rate, budget remaining, pause state |
-| `/autoresearch reset` | Clear state and start fresh (clears pause if paused) |
+| `/autoresearch reset` | Clear state and delete `autoresearch.jsonl` — starts fresh (clears pause if paused) |
 
 ## Safety features
 
@@ -172,6 +180,61 @@ Results are saved in two places:
 - **Dashboard API** — Synced to your Simmer dashboard (Pro users see an Autoresearch tab)
 
 Git auto-commits on `keep` decisions so you can track what changed and roll back if needed.
+
+## Key files
+
+These files are created in your workspace during an autoresearch session:
+
+| File | Purpose | Created by |
+|------|---------|-----------|
+| `autoresearch.md` | Session strategy doc — objective, metrics, constraints, what's been tried. A fresh agent with no context should be able to read this and run the loop. | Agent (on first run) |
+| `autoresearch.sh` | Shell script that runs the skill and outputs `METRIC name=value` lines | Agent (on first run) |
+| `autoresearch.jsonl` | Persistent experiment log — one JSON object per run | Plugin (automatic) |
+| `autoresearch.ideas.md` | Backlog of promising optimizations to try later | Agent (optional) |
+
+## Confidence scoring
+
+After 3+ experiments with non-zero metrics, the plugin calculates a confidence score using Median Absolute Deviation (MAD) — a robust noise estimator that handles flaky benchmarks better than standard deviation. Crashes (metric=0) are excluded from the calculation.
+
+| Score | Meaning |
+|-------|---------|
+| >= 2.0x | Likely real improvement |
+| 1.0 - 2.0x | Marginal — consider re-running to confirm |
+| < 1.0x | Within noise — probably not a real improvement |
+
+The score is advisory only — the agent decides whether to keep or discard.
+
+## Troubleshooting
+
+### Plugin can't find API key
+
+Set `SIMMER_API_KEY` in your platform's environment variables. The env var must be visible to the OpenClaw process, not just your shell session.
+
+### Skill dependencies missing
+
+The plugin doesn't install skill dependencies automatically. If a skill needs Python packages, install them manually:
+
+```bash
+python3 -m pip install <package>
+```
+
+On Railway containers with managed Python, you may need `--break-system-packages`.
+
+### Agent not reverting on discard
+
+The plugin tells the agent to run `git checkout -- .` on discard/crash, but the agent must execute it. If you notice dirty state carrying between experiments, check `git status` and revert manually.
+
+### Experiments not syncing to dashboard
+
+The plugin POSTs results to the Simmer API on a best-effort basis. If the API is unreachable, results are saved locally in `autoresearch.jsonl` but won't appear on the dashboard. Check your API key and network connectivity.
+
+### Run timeout too short
+
+Default timeout is 600 seconds. If your skill takes longer, pass a higher timeout:
+
+```
+run_experiment({ command: "./autoresearch.sh", timeout_seconds: 1200 })
+```
 
 ## API endpoints
 
