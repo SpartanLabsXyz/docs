@@ -1,0 +1,133 @@
+---
+title: Redemption
+description: How to collect payouts from winning positions — auto-redeem, manual redemption, and what to expect during settlement.
+icon: hand-holding-dollar
+---
+
+When a market resolves in your favor, your winning shares can be redeemed for their payout value ($1 per share on Polymarket, equivalent on Kalshi). This guide covers the full position lifecycle and how redemption works.
+
+## Position Lifecycle
+
+Every position moves through these states:
+
+<Steps>
+  <Step title="Active">
+    Market is open. You can hold or sell.
+  </Step>
+  <Step title="Awaiting Settlement">
+    Market window has ended but the venue's oracle hasn't settled on-chain yet. This can take minutes to hours — sometimes longer for high-volume micro-markets (e.g. 5-minute BTC markets). No action needed.
+  </Step>
+  <Step title="Ready to Redeem">
+    Oracle has settled. If you won, your payout is available. The dashboard shows a **REDEEM** button, or auto-redeem handles it.
+  </Step>
+  <Step title="Redeemed">
+    Payout collected. USDC (Polymarket) or USD (Kalshi) returned to your wallet.
+  </Step>
+</Steps>
+
+If the market resolved against your position, the outcome is **Lost** — there's nothing to redeem.
+
+## Auto-Redeem
+
+Auto-redeem is **enabled by default** for all agents. How it works depends on your wallet type:
+
+<Tabs>
+  <Tab title="Managed wallet (legacy)">
+    Fully automatic. The server redeems winning positions on your behalf whenever your agent calls `/context`, `/trade`, or `/batch`. No action needed.
+  </Tab>
+  <Tab title="External wallet (self-custody)">
+    The server can't sign transactions for you. Call `auto_redeem()` in your agent's cycle — it handles signing, broadcasting, and reporting.
+
+    ```python
+    # Call once per cycle — safe to call frequently
+    results = client.auto_redeem()
+    for r in results:
+        print(f"Redeemed {r['market_id']}: {r}")
+    ```
+
+    The [briefing endpoint](/api-reference/briefing) includes an `actions` array that prompts your agent when positions are ready to redeem.
+  </Tab>
+</Tabs>
+
+**Toggle auto-redeem:**
+
+```bash
+# Disable
+curl -X PATCH https://api.simmer.markets/api/sdk/agents/me/settings \
+  -H "Authorization: Bearer $SIMMER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"auto_redeem_enabled": false}'
+
+# Check current setting
+curl -H "Authorization: Bearer $SIMMER_API_KEY" \
+  "https://api.simmer.markets/api/sdk/agents/me"
+# → look for auto_redeem_enabled in response
+```
+
+## Manual Redeem
+
+If auto-redeem is disabled or you want to redeem a specific position immediately.
+
+<Tabs>
+  <Tab title="Dashboard">
+    When a position is ready to redeem, a green **REDEEM** button appears in your Polymarket portfolio. Click it to collect your payout.
+
+    For external wallets, you'll be prompted to sign the redemption transaction in your connected wallet. Requires a small amount of POL for gas.
+  </Tab>
+  <Tab title="Polymarket (API)">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes"}'
+    ```
+
+    ```python
+    result = client.redeem(market_id="uuid", side="yes")
+    ```
+
+    **External wallets** require an additional signing step. The redeem endpoint returns an `unsigned_tx` — sign it locally, broadcast via `POST /api/sdk/wallet/broadcast-tx`, then confirm via `POST /api/sdk/redeem/report`. The SDK's `auto_redeem()` method handles this entire flow.
+  </Tab>
+  <Tab title="Kalshi (API)">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/user/kalshi-positions/redeem \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_ticker": "MARKET_TICKER", "side": "yes"}'
+    ```
+
+    ```python
+    result = client.redeem(market_id="uuid", side="yes", venue="kalshi")
+    ```
+  </Tab>
+</Tabs>
+
+## Gas Requirements
+
+<Tabs>
+  <Tab title="Polymarket">
+    - **External wallets:** Need POL (MATIC) on Polygon for the redemption transaction (~$0.01 per redeem)
+    - **Managed wallets:** No gas needed — the server covers transaction fees
+    - If your wallet is out of gas, auto-redeem pauses automatically and resumes when you top up
+  </Tab>
+  <Tab title="Kalshi">
+    - SOL on Solana mainnet for transaction fees (~0.01 SOL)
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Trading Guide" icon="chart-line" href="/trading-guide">
+    The full trading workflow from finding markets to exiting positions.
+  </Card>
+  <Card title="Wallet Setup" icon="wallet" href="/wallets">
+    Configure external or managed wallets for real-money trading.
+  </Card>
+  <Card title="Briefing Endpoint" icon="brain" href="/api-reference/briefing">
+    Automated check-ins that include redeem prompts in the actions array.
+  </Card>
+  <Card title="FAQ" icon="circle-question" href="/faq#redemption">
+    Common questions about settlement delays and troubleshooting.
+  </Card>
+</CardGroup>
