@@ -216,23 +216,9 @@ Before selling on Polymarket: verify the market is still active, you have at lea
 
 ### Redeem (resolved markets)
 
-After a market resolves, redeem winning positions to collect your payout.
+After a market resolves, winning positions can be redeemed to collect your payout. By default, auto-redeem handles this automatically.
 
-<Tabs>
-  <Tab title="curl">
-    ```bash
-    curl -X POST https://api.simmer.markets/api/sdk/redeem \
-      -H "Authorization: Bearer \$SIMMER_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d '{"market_id": "MARKET_ID", "side": "yes"}'
-    ```
-  </Tab>
-  <Tab title="Python">
-    ```python
-    result = client.redeem(market_id="uuid", side="yes")
-    ```
-  </Tab>
-</Tabs>
+See the full [Redemption Guide](/redemption) for details on the position lifecycle, auto-redeem configuration, manual redemption, and troubleshooting settlement delays.
 
 ### Automated exits
 
