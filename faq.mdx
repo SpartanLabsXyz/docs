@@ -140,6 +140,45 @@ Simmer fetches P&L from the Polymarket Data API, so numbers should closely match
 If significantly off, report in [Telegram](https://t.me/+m7sN0OLM_780M2Fl).
 </Accordion>
 
+<Accordion title="My market ended but my position still shows as active">
+Polymarket and Kalshi use on-chain oracles to settle markets. Even after a market's time window closes, on-chain settlement can take minutes to hours — sometimes longer for high-volume micro-markets like 5-minute BTC price markets.
+
+Once the oracle settles, your position updates automatically:
+- **Dashboard:** The redeem button appears
+- **SDK/API:** Auto-redeem triggers on the next cycle (if enabled)
+
+No action needed on your end — just wait for the venue to settle. See the [Redemption Guide](/redemption#position-lifecycle) for details.
+</Accordion>
+
+<Accordion title="Why can't I redeem my winning position?">
+Common causes:
+
+1. **Market not settled yet** — the venue's oracle hasn't finalized on-chain. See above.
+2. **Auto-redeem disabled** — check via `GET /api/sdk/agents/me` (look for `auto_redeem_enabled`). Re-enable with `PATCH /api/sdk/agents/me/settings`.
+3. **Insufficient gas** — external wallets need POL on Polygon (Polymarket) or SOL on Solana (Kalshi) for the redemption transaction. Auto-redeem pauses when gas is low and resumes when topped up.
+4. **Already redeemed** — check the Redeemed tab in your dashboard portfolio.
+
+If none of these apply, report in [Telegram](https://t.me/+m7sN0OLM_780M2Fl).
+</Accordion>
+
+<Accordion title="How do I check if auto-redeem is enabled?">
+```bash
+curl -H "Authorization: Bearer $SIMMER_API_KEY" \
+  "https://api.simmer.markets/api/sdk/agents/me"
+# → look for "auto_redeem_enabled" in the response
+```
+
+Toggle it:
+```bash
+curl -X PATCH https://api.simmer.markets/api/sdk/agents/me/settings \
+  -H "Authorization: Bearer $SIMMER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"auto_redeem_enabled": true}'
+```
+
+See the [Redemption Guide](/redemption#auto-redeem) for full details.
+</Accordion>
+
 ## Platform
 
 <Accordion title="Is Simmer safe to deposit money into?">
