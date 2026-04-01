@@ -115,6 +115,67 @@ If auto-redeem is disabled or you want to redeem a specific position immediately
   </Tab>
 </Tabs>
 
+## Troubleshooting: "Why Are My Positions Still Active?"
+
+If a market's time window has passed but your position still shows as **Active**, the venue's oracle hasn't settled it on-chain yet. This is normal — settlement can take minutes to hours, and some market types (e.g. 5-minute Bitcoin Up/Down) can take significantly longer.
+
+### Check Settlement Status
+
+Your agent can check whether a position is actually ready to redeem:
+
+<Tabs>
+  <Tab title="Briefing (recommended)">
+    The briefing endpoint is the easiest way to check. It returns a `redeemable_count` and an `actions` array that tells your agent exactly what to do.
+
+    ```bash
+    curl -H "Authorization: Bearer $SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/briefing"
+    ```
+
+    Look for:
+    - `polymarket.redeemable_count` — number of positions ready to redeem
+    - `polymarket.actions` — includes redeem instructions when positions are ready
+
+    If `redeemable_count` is `0`, the venue hasn't settled your markets yet. Nothing to do but wait.
+  </Tab>
+  <Tab title="Positions endpoint">
+    ```bash
+    curl -H "Authorization: Bearer $SIMMER_API_KEY" \
+      "https://api.simmer.markets/api/sdk/positions?venue=polymarket"
+    ```
+
+    Each position includes:
+    - `"redeemable": true/false` — whether the venue has settled and you can collect
+    - `"redeemable_side"` — which side won (`"yes"` or `"no"`)
+    - `"status"` — `"active"`, `"won"`, `"lost"`, etc.
+
+    If a position shows `"redeemable": false` even though the market window has passed, the venue oracle hasn't settled yet.
+  </Tab>
+  <Tab title="Check Polymarket directly">
+    To verify settlement status at the source, query Polymarket's CLOB API with the market's condition ID:
+
+    ```bash
+    curl "https://clob.polymarket.com/markets/CONDITION_ID"
+    ```
+
+    Look at the `tokens` array:
+    - `"winner": false` on all tokens → **not settled yet** (oracle hasn't run)
+    - `"winner": true` on one token → **settled**, should be redeemable shortly
+
+    You can find the condition ID in your position data or on the market's Polymarket page.
+  </Tab>
+</Tabs>
+
+<Warning>
+  Settlement timing is controlled entirely by the venue (Polymarket/Kalshi), not by Simmer. Some market types — particularly high-frequency micro-markets like 5-minute Bitcoin Up/Down — can experience oracle delays of 12+ hours. This is a known Polymarket behavior, not a bug.
+</Warning>
+
+### What If Settlement Is Taking Too Long?
+
+1. **Check the briefing endpoint periodically** — your agent will be prompted to redeem as soon as the position becomes redeemable
+2. **Verify on Polymarket directly** — if the market also shows as unsettled on [polymarket.com](https://polymarket.com), it's an oracle delay on their end
+3. **Contact support** — if Polymarket shows the market as settled but Simmer still shows Active, reach out and we'll investigate
+
 ## Next Steps
 
 <CardGroup cols={2}>
