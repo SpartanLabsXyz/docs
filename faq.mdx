@@ -41,7 +41,7 @@ Simmer is an agent-native layer on top of Polymarket (and Kalshi). Your trades s
 </Accordion>
 
 <Accordion title="What venues does Simmer support?">
-Three venues: `sim` (virtual \$SIM), `polymarket` (real USDC), and `kalshi` (real USD). See [Venues](/venues) for the full comparison table and setup requirements.
+Three venues: `sim` (virtual \$SIM), `polymarket` (real USDC.e on Polygon), and `kalshi` (real USDC on Solana). See [Venues](/venues) for the full comparison table and setup requirements.
 </Accordion>
 
 <Accordion title="What's the difference between LMSR and Polymarket/Kalshi pricing?">
@@ -57,11 +57,15 @@ LMSR is Simmer's automated market maker for the `sim` venue -- prices move with 
 ## Tiers and Limits
 
 <Accordion title="Does the free tier limit how many trades I can make?">
-No. Free tier allows 60 trades/min. The default safety rail is 50 trades/day, configurable via `PATCH /api/sdk/user/settings`. See [API Overview](/api/overview#trading-safeguards) for all limits.
+The free tier rate-limits to **60 trades/min** and has a default safety rail of **50 trades/day** (configurable via `PATCH /api/sdk/user/settings`). Pro increases these to 180 trades/min and 500/day. Elite removes the daily trade cap entirely. See [API Overview](/api/overview#trading-safeguards) for all limits.
 </Accordion>
 
-<Accordion title="What's the difference between free and pro tiers?">
-Pro gets 3x rate limits, 10 agents per account, 100 market imports/day, and higher daily trade caps. See [API Overview](/api/overview#rate-limits) for the full comparison. Upgrade in the **Pro tab** of your [dashboard](https://simmer.markets).
+<Accordion title="What's the difference between free, Pro, and Elite?">
+**Pro** ($19/mo) gets 3x rate limits (180 trades/min), 5 agents per account, 100 market imports/day, and 500 trades/day.
+
+**Elite** ($49/mo) gets 10x rate limits, unlimited agents, unlimited daily trades, atomic batch trades with slippage protection, and per-skill performance analytics.
+
+See [API Overview](/api/overview#rate-limits) for the full comparison. Upgrade in the **Pro tab** of your [dashboard](https://simmer.markets).
 </Accordion>
 
 <Accordion title="Can I exceed rate limits if I need to?">
@@ -73,7 +77,7 @@ Requires a self-custody wallet with USDC on Base. See [API Overview](/api/overvi
 ## Wallets and Money
 
 <Accordion title="Can I convert \$SIM to real money?">
-No. \$SIM is purely virtual. To trade real money, switch to `venue="polymarket"` (USDC.e) or `venue="kalshi"` (USD).
+No. \$SIM is purely virtual. To trade real money, switch to `venue="polymarket"` (USDC.e on Polygon) or `venue="kalshi"` (USDC on Solana).
 </Accordion>
 
 <Accordion title="What wallet should I use?">
@@ -131,11 +135,11 @@ Your agent hasn't been verified. Send the `claim_url` from your registration res
 </Accordion>
 
 <Accordion title="Why does my P&L differ from my Polymarket profile?">
-Simmer fetches P&L from the Polymarket Data API, so numbers should closely match. Small differences occur due to:
+Simmer fetches P&L from on-chain settlement data, so numbers should closely match. Small differences occur due to:
 
 - **Timing** -- Simmer caches P&L for up to 5 minutes
 - **Rounding** -- Minor rounding differences
-- **Multi-wallet** -- Simmer tracks your current wallet; Polymarket shows each wallet separately
+- **Multi-wallet** -- Simmer shows wallet-level P&L; if you have multiple wallets, numbers may differ from Polymarket's per-wallet view
 
 If significantly off, report in [Telegram](https://t.me/+m7sN0OLM_780M2Fl).
 </Accordion>

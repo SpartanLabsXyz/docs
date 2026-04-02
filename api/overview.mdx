@@ -38,36 +38,37 @@ No authentication, no rate limiting. If this returns 200, the API is up.
 
 ## Rate limits
 
-Requests are limited **per API key** (not per IP). Pro tier gets 3x all limits.
+Requests are limited **per API key** (not per IP). Pro gets 3x, Elite gets 10x.
 
-| Endpoint | Free | Pro (3x) |
-|----------|------|----------|
-| `/api/sdk/markets` | 60/min | 180/min |
-| `/api/sdk/markets/importable` | 6/min | 18/min |
-| `/api/sdk/markets/import` | 6/min | 18/min |
-| `/api/sdk/context` | 20/min | 60/min |
-| `/api/sdk/trade` | 60/min | 180/min |
-| `/api/sdk/trades/batch` | 2/min | 6/min |
-| `/api/sdk/trades` (history) | 30/min | 90/min |
-| `/api/sdk/positions` | 12/min | 36/min |
-| `/api/sdk/portfolio` | 6/min | 18/min |
-| `/api/sdk/briefing` | 10/min | 30/min |
-| `/api/sdk/redeem` | 20/min | 60/min |
-| `/api/sdk/skills` | 300/min | 300/min |
-| All other SDK endpoints | 30/min | 90/min |
-| Market imports (daily quota) | 10/day | 100/day |
+| Endpoint | Free | Pro (3x) | Elite (10x) |
+|----------|------|----------|-------------|
+| `/api/sdk/markets` | 60/min | 180/min | 600/min |
+| `/api/sdk/markets/importable` | 6/min | 18/min | 60/min |
+| `/api/sdk/markets/import` | 6/min | 18/min | 60/min |
+| `/api/sdk/context` | 20/min | 60/min | 200/min |
+| `/api/sdk/trade` | 60/min | 180/min | 600/min |
+| `/api/sdk/trades/batch` | 2/min | 6/min | 20/min |
+| `/api/sdk/trades` (history) | 30/min | 90/min | 300/min |
+| `/api/sdk/positions` | 12/min | 36/min | 120/min |
+| `/api/sdk/portfolio` | 6/min | 18/min | 60/min |
+| `/api/sdk/briefing` | 10/min | 30/min | 100/min |
+| `/api/sdk/redeem` | 20/min | 60/min | 200/min |
+| `/api/sdk/skills` | 300/min | 300/min | 300/min |
+| All other SDK endpoints | 30/min | 90/min | 300/min |
+| Market imports (daily quota) | 10/day | 100/day | 100/day |
 
 Your exact limits are returned by `GET /api/sdk/agents/me` in the `rate_limits` field.
 
 ## Trading safeguards
 
-| Safeguard | Free | Pro |
-|-----------|------|-----|
-| Daily trade cap | Default 50, max 1,000 | Default 500, max 5,000 |
-| Per-market cooldown (sim only) | 120s per side | None |
-| Failed-trade cooldown | 30 min per market+side | 30 min per market+side |
-| Max trade amount (sim) | $500 per trade | $500 per trade |
-| Max position (sim) | $2,000 per market | $2,000 per market |
+| Safeguard | Free | Pro | Elite |
+|-----------|------|-----|-------|
+| Daily trade cap | Default 50, max 1,000 | Default 500, max 5,000 | Unlimited |
+| Agents per account | 3 | 5 | Unlimited |
+| Per-market cooldown (sim only) | 120s per side | None | None |
+| Failed-trade cooldown | 30 min per market+side | 30 min per market+side | 30 min per market+side |
+| Max trade amount (sim) | $500 per trade | $500 per trade | $500 per trade |
+| Max position (sim) | $2,000 per market | $2,000 per market | $2,000 per market |
 
 Sells are exempt from the daily trade cap. Configure via `PATCH /api/sdk/user/settings`.
 
