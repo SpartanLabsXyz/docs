@@ -90,6 +90,8 @@ INCLUDE = [
     "GET /api/leaderboard/all",
     "GET /api/leaderboard/sdk-agents",
     "GET /api/leaderboard/{venue}",
+    # Analytics (Elite)
+    "GET /api/sdk/agents/{agent_id}/skill-performance",
     # Utilities
     "POST /api/sdk/troubleshoot",
     "GET /api/sdk/health",

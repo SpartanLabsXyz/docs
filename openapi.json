@@ -808,7 +808,7 @@
     "/api/sdk/fast-markets": {
       "get": {
         "summary": "Fast Markets",
-        "description": "List fast-resolving markets, optionally filtered by asset and time window.\n\nParameters:\n- asset: Crypto ticker to filter by (BTC, ETH, SOL, XRP, DOGE, ...).\n         Maps to a title search \u2014 e.g. asset=BTC searches for \"Bitcoin\".\n- window: Duration bucket (5m, 15m, 1h, 4h, daily). Matches Polymarket's\n          standard crypto speed-trading tiers.\n- venue: Filter by venue ('polymarket', 'kalshi', 'sim').\n- limit: Max markets to return (default 50).\n- sort: 'volume' to sort by 24h volume.\n\nEquivalent to GET /api/sdk/markets?tags=fast[,fast-<window>]&q=<asset_name>",
+        "description": "List fast-resolving markets, optionally filtered by asset and time window.\n\nParameters:\n- asset: Crypto ticker to filter by (BTC, ETH, SOL, XRP, DOGE, ...).\n         Maps to a title search \u2014 e.g. asset=BTC searches for \"Bitcoin\".\n- window: Duration bucket (5m, 15m, 1h, 4h, daily). Matches Polymarket's\n          standard crypto speed-trading tiers.\n- venue: Filter by venue ('polymarket', 'kalshi', 'sim').\n- limit: Max markets to return (default 50).\n- sort: 'volume' to sort by 24h volume, 'resolves_at' for pure chronological.\n- market_status: 'live' (trading now), 'upcoming' (not yet live), or omit for all.\n          With 'upcoming', results are sorted by resolves_at ASC (no live-first priority).\n\nEquivalent to GET /api/sdk/markets?tags=fast[,fast-<window>]&q=<asset_name>",
         "operationId": "api_sdk_fast_markets_api_sdk_fast_markets_get",
         "parameters": [
           {
@@ -883,6 +883,22 @@
                 }
               ],
               "title": "Sort"
+            }
+          },
+          {
+            "name": "market_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Market Status"
             }
           }
         ],
@@ -2597,6 +2613,44 @@
         }
       }
     },
+    "/api/sdk/agents/{agent_id}/skill-performance": {
+      "get": {
+        "summary": "Agent Skill Performance",
+        "description": "Get per-skill P&L breakdown for an agent's trades. Intentionally ungated \u2014 data available to all tiers for onboarding/upsell value. Frontend renders full UI for Elite only.",
+        "operationId": "api_sdk_agent_skill_performance_api_sdk_agents__agent_id__skill_performance_get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sdk/troubleshoot": {
       "post": {
         "summary": "Troubleshoot Error",
@@ -3544,6 +3598,16 @@
             "type": "boolean",
             "title": "Dry Run",
             "default": false
+          },
+          "atomic": {
+            "type": "boolean",
+            "title": "Atomic",
+            "default": false
+          },
+          "max_slippage": {
+            "type": "number",
+            "title": "Max Slippage",
+            "default": 0.02
           }
         },
         "type": "object",
@@ -3667,6 +3731,33 @@
               }
             ],
             "title": "Price"
+          },
+          "dry_run_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dry Run Price"
+          },
+          "slippage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slippage"
+          },
+          "aborted": {
+            "type": "boolean",
+            "title": "Aborted",
+            "default": false
           }
         },
         "type": "object",
@@ -4660,6 +4751,14 @@
               }
             ],
             "title": "By Source"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
           }
         },
         "type": "object",
@@ -5124,6 +5223,18 @@
               }
             ],
             "title": "Skill Slug"
+          },
+          "signal_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signal Data"
           },
           "dry_run": {
             "type": "boolean",
