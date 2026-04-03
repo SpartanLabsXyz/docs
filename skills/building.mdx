@@ -159,6 +159,24 @@ if edge.get("recommendation") == "HOLD":
 
 This isn't a hard rule -- some high-frequency skills skip context checks for speed. But for most strategies, checking context prevents costly mistakes like flip-flopping or trading into illiquid books.
 
+### Recommended: redeem winning positions
+
+Call `auto_redeem()` once per cycle to collect payouts from resolved markets. This handles both wallet types -- managed wallets redeem server-side, external wallets sign and broadcast locally.
+
+```python
+# At the start or end of each cycle -- safe to call frequently
+results = get_client().auto_redeem()
+for r in results:
+    if r["success"]:
+        print(f"Redeemed {r['market_id']}: tx={r['tx_hash']}")
+```
+
+Without this, winning positions sit unredeemed until the user manually collects them from the dashboard. For external wallets (self-custody), this is the **only** automated redemption path -- the server can't sign on your behalf.
+
+<Tip>
+`auto_redeem()` checks the agent's `auto_redeem_enabled` setting and returns an empty list if disabled. It catches all errors internally and never raises -- safe to call unconditionally.
+</Tip>
+
 ## Publishing
 
 ```bash
