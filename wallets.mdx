@@ -55,7 +55,7 @@ Stop-loss and take-profit are monitored in real time. For external wallets, your
 
 ### Auto-redeem for external wallets
 
-The server cannot sign redemptions for you. Use the SDK's `auto_redeem()` method in your agent's cycle:
+The server cannot sign redemptions for you — your private key never leaves your machine. The SDK's `auto_redeem()` method handles the full 3-step flow (unsigned tx → local signing → broadcast → report) automatically:
 
 ```python
 # Call once per cycle -- safe to call frequently
@@ -63,6 +63,8 @@ results = client.auto_redeem()
 for r in results:
     print(f"Redeemed {r['market_id']}: {r}")
 ```
+
+See the [Redemption guide](/redemption) for the full flow diagram, Kalshi details, and how to build your own signing flow without the Python SDK.
 
 ## Managed wallet (legacy)
 

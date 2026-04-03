@@ -1,0 +1,208 @@
+---
+title: Redemption
+description: Claim payouts from resolved prediction markets — Polymarket (Polygon) and Kalshi (Solana).
+icon: coins
+---
+
+After a market resolves, winning positions can be **redeemed** to convert outcome tokens back into stablecoins (USDC.e on Polygon for Polymarket, USDC on Solana for Kalshi).
+
+<Note>
+Simmer venue (`venue="sim"`) positions settle automatically — no redemption step needed. This guide covers **Polymarket** and **Kalshi** only.
+</Note>
+
+## Polymarket redemption
+
+### How it works
+
+Polymarket positions are represented as ERC-1155 CTF (Conditional Token Framework) tokens on Polygon. Redemption calls the CTF contract's `redeemPositions` function to burn your winning tokens and receive USDC.e.
+
+The flow differs by wallet type:
+
+<Tabs>
+  <Tab title="External wallet (recommended)">
+
+    **The SDK's `auto_redeem()` handles the full 3-step flow automatically:**
+
+    1. **Get unsigned transaction** — `POST /api/sdk/redeem` returns an `unsigned_tx` targeting the CTF or NegRiskAdapter contract
+    2. **Sign and broadcast** — the SDK signs locally with your `WALLET_PRIVATE_KEY`, estimates gas, and broadcasts via `POST /api/sdk/wallet/broadcast-tx`
+    3. **Report confirmation** — after on-chain confirmation, the SDK calls `POST /api/sdk/redeem/report` so the position stops showing as redeemable
+
+    ```python
+    # Call once per cycle — handles all three steps internally
+    results = client.auto_redeem()
+    for r in results:
+        if r["success"]:
+            print(f"Redeemed {r['market_id']}: tx={r['tx_hash']}")
+    ```
+
+    **Why your agent must be running:** The Simmer server cannot sign transactions for external wallets — your private key never leaves your machine. The SDK handles signing, broadcasting, and reporting as a single atomic operation inside `auto_redeem()`.
+
+    <Warning>
+    Each redemption polls for on-chain confirmation (up to 60 seconds per position). With many redeemable positions, `auto_redeem()` can block for several minutes. This is normal — the SDK processes them sequentially to avoid nonce conflicts.
+    </Warning>
+
+  </Tab>
+  <Tab title="Managed wallet (legacy)">
+
+    The server signs and submits the transaction on your behalf. A single API call is all you need:
+
+    ```python
+    result = client.redeem(market_id="uuid", side="yes")
+    print(f"Redeemed: {result['tx_hash']}")
+    ```
+
+    Or via curl:
+
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes"}'
+    ```
+
+    The server also triggers auto-redemption in the background when you call `/trade`, `/briefing`, or `/context` endpoints.
+
+  </Tab>
+</Tabs>
+
+### Building your own signing flow
+
+If you're not using the Python SDK (e.g., building in TypeScript or Go), implement the 3-step flow manually:
+
+<Steps>
+  <Step title="Request the unsigned transaction">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes"}'
+    ```
+
+    For external wallets, the response includes an `unsigned_tx` object with `to`, `data`, and `from` fields. The `to` address will be one of:
+    - `0x4D97DCd97eC945f40cF65F87097ACe5EA0476045` — CTF contract (standard markets)
+    - `0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296` — NegRiskAdapter (negative risk markets)
+  </Step>
+  <Step title="Sign and broadcast">
+    Sign the transaction with your Polygon wallet key (EIP-1559 type 2 transaction, chain ID 137). Then broadcast:
+
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/wallet/broadcast-tx \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"signed_tx": "0x..."}'
+    ```
+
+    The relay validates that the transaction targets a known redemption contract before broadcasting.
+  </Step>
+  <Step title="Report the result">
+    After the transaction confirms on-chain, report it so the position stops appearing as redeemable:
+
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem/report \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes", "tx_hash": "0x..."}'
+    ```
+
+    <Tip>
+    If you skip the report step, the position will continue to appear as redeemable in `/positions`. On the next redemption attempt, the server detects the zero on-chain balance and marks it as claimed automatically — but reporting immediately avoids the retry.
+    </Tip>
+  </Step>
+</Steps>
+
+### Polymarket requirements
+
+- **POL** on Polygon for gas (~$0.01 per redemption)
+- **USDC.e** is credited to your wallet (bridged USDC on Polygon, contract `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`)
+- Market must be fully resolved on Polymarket's CLOB (not just the on-chain oracle)
+
+### Toggling auto-redeem
+
+Disable automatic redemption if you want manual control:
+
+```python
+# Disable
+client.update_settings(auto_redeem_enabled=False)
+
+# Re-enable
+client.update_settings(auto_redeem_enabled=True)
+```
+
+Or via curl:
+
+```bash
+curl -X PATCH https://api.simmer.markets/api/sdk/agents/me/settings \
+  -H "Authorization: Bearer $SIMMER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"auto_redeem_enabled": false}'
+```
+
+## Kalshi redemption
+
+Kalshi markets settle on **Solana** via DFlow. The redemption flow is different from Polymarket:
+
+- **Chain:** Solana mainnet (not Polygon)
+- **Currency:** USDC on Solana (not USDC.e)
+- **Signing:** Solana transaction signed with `SOLANA_PRIVATE_KEY`
+- **Endpoint:** `POST /api/user/kalshi-positions/redeem`
+
+### How Kalshi redemption works
+
+<Steps>
+  <Step title="Check eligibility">
+    Use the positions endpoint to find resolved Kalshi markets where you hold winning tokens.
+  </Step>
+  <Step title="Request redemption order">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/user/kalshi-positions/redeem \
+      -H "Authorization: Bearer $DYNAMIC_JWT" \
+      -H "Content-Type: application/json" \
+      -d '{"market_ticker": "KXWEATHER-26JAN25-NYC", "side": "yes"}'
+    ```
+
+    Returns a base64-encoded unsigned Solana transaction in `unsigned_tx`.
+  </Step>
+  <Step title="Sign and submit">
+    Sign the transaction with your Solana keypair and submit to the Solana network.
+  </Step>
+</Steps>
+
+### Key differences from Polymarket
+
+| | Polymarket | Kalshi |
+|---|---|---|
+| **Chain** | Polygon | Solana |
+| **Token standard** | ERC-1155 (CTF) | SPL tokens |
+| **Currency received** | USDC.e | USDC |
+| **Gas token** | POL | SOL |
+| **SDK auto-redeem** | Yes (`auto_redeem()`) | Not yet — manual only |
+| **Auth** | API key | Dynamic JWT (dashboard) |
+
+<Note>
+Kalshi redemption currently requires a Dynamic JWT (browser session). SDK-based auto-redeem for Kalshi is planned but not yet available. For now, redeem Kalshi positions from the dashboard.
+</Note>
+
+## Checking redeemable positions
+
+The positions endpoint flags which positions are ready to redeem:
+
+```python
+data = client.get_positions(status="resolved")
+for pos in data["positions"]:
+    if pos.get("redeemable"):
+        print(f"Ready to redeem: {pos['question']} ({pos['redeemable_side']})")
+```
+
+The portfolio endpoint also includes a `redeemable_count` field for a quick check.
+
+## Troubleshooting
+
+**"On-chain token balance is 0"** — The position was already redeemed (possibly by another tool or wallet interface). The server marks it as claimed automatically.
+
+**"Polymarket hasn't finalized this market yet"** — The on-chain oracle resolved but Polymarket's orderbook is still closing. Wait 10-30 minutes and retry.
+
+**"Your YES/NO position lost"** — You're trying to redeem the losing side. Only the winning side has value.
+
+**"Gas limit too high"** — The SDK caps gas at 500,000 to prevent POL drain. If you hit this, the contract call may be reverting — check that the market is fully resolved.
+
+**Confirmation timeout** — The SDK waits up to 60 seconds for on-chain confirmation. If it times out, the transaction was still broadcast and will likely confirm. Check the tx hash on [Polygonscan](https://polygonscan.com).
