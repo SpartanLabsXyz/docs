@@ -6,6 +6,10 @@ icon: hand-holding-dollar
 
 When a market resolves in your favor, your winning shares can be redeemed for their payout value ($1 per share on Polymarket, equivalent on Kalshi). This guide covers the full position lifecycle and how redemption works.
 
+<Note>
+Simmer venue (`venue="sim"`) positions settle automatically — no redemption step needed. This guide covers **Polymarket** and **Kalshi** only.
+</Note>
+
 ## Position Lifecycle
 
 Every position moves through these states:
@@ -32,20 +36,29 @@ If the market resolved against your position, the outcome is **Lost** — there'
 Auto-redeem is **enabled by default** for all agents. How it works depends on your wallet type:
 
 <Tabs>
-  <Tab title="Managed wallet (legacy)">
-    Fully automatic. The server redeems winning positions on your behalf whenever your agent calls `/context`, `/trade`, or `/batch`. No action needed.
-  </Tab>
-  <Tab title="External wallet (self-custody)">
-    The server can't sign transactions for you. Call `auto_redeem()` in your agent's cycle — it handles signing, broadcasting, and reporting.
+  <Tab title="External wallet (recommended)">
+    The server can't sign transactions for you. Call `auto_redeem()` in your agent's cycle — it handles the full 3-step flow automatically:
+
+    1. **Get unsigned transaction** — `POST /api/sdk/redeem` returns an `unsigned_tx` targeting the CTF or NegRiskAdapter contract
+    2. **Sign and broadcast** — the SDK signs locally with your `WALLET_PRIVATE_KEY`, estimates gas, and broadcasts via `POST /api/sdk/wallet/broadcast-tx`
+    3. **Report confirmation** — after on-chain confirmation, the SDK calls `POST /api/sdk/redeem/report` so the position stops showing as redeemable
 
     ```python
     # Call once per cycle — safe to call frequently
     results = client.auto_redeem()
     for r in results:
-        print(f"Redeemed {r['market_id']}: {r}")
+        if r["success"]:
+            print(f"Redeemed {r['market_id']}: tx={r['tx_hash']}")
     ```
 
     The [briefing endpoint](/api-reference/briefing) includes an `actions` array that prompts your agent when positions are ready to redeem.
+
+    <Warning>
+    Each redemption polls for on-chain confirmation (up to 60 seconds per position). With many redeemable positions, `auto_redeem()` can block for several minutes. This is normal — the SDK processes them sequentially to avoid nonce conflicts.
+    </Warning>
+  </Tab>
+  <Tab title="Managed wallet (legacy)">
+    Fully automatic. The server redeems winning positions on your behalf whenever your agent calls `/context`, `/trade`, or `/batch`. No action needed.
   </Tab>
 </Tabs>
 
@@ -102,17 +115,78 @@ If auto-redeem is disabled or you want to redeem a specific position immediately
   </Tab>
 </Tabs>
 
+## Building Your Own Signing Flow
+
+If you're not using the Python SDK (e.g., building in TypeScript or Go), implement the 3-step flow manually:
+
+<Steps>
+  <Step title="Request the unsigned transaction">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes"}'
+    ```
+
+    For external wallets, the response includes an `unsigned_tx` object with `to` and `data` fields. The `to` address will be one of:
+    - `0x4D97DCd97eC945f40cF65F87097ACe5EA0476045` — CTF contract (standard markets)
+    - `0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296` — NegRiskAdapter (negative risk markets)
+  </Step>
+  <Step title="Sign and broadcast">
+    Sign the transaction with your Polygon wallet key (EIP-1559 type 2 transaction, chain ID 137). Then broadcast:
+
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/wallet/broadcast-tx \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"signed_tx": "0x..."}'
+    ```
+
+    The relay validates that the transaction targets a known redemption contract before broadcasting.
+  </Step>
+  <Step title="Report the result">
+    After the transaction confirms on-chain, report it so the position stops appearing as redeemable:
+
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem/report \
+      -H "Authorization: Bearer $SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes", "tx_hash": "0x..."}'
+    ```
+
+    <Tip>
+    If you skip the report step, the position will continue to appear as redeemable in `/positions`. On the next redemption attempt, the server detects the zero on-chain balance and marks it as claimed automatically — but reporting immediately avoids the retry.
+    </Tip>
+  </Step>
+</Steps>
+
 ## Gas Requirements
 
 <Tabs>
   <Tab title="Polymarket">
-    - Need POL (MATIC) on Polygon for the redemption transaction (~$0.01 per redeem)
+    - Need POL on Polygon for the redemption transaction (~$0.01 per redeem)
     - If your wallet is out of gas, auto-redeem pauses automatically and resumes when you top up
+    - USDC.e is credited to your wallet (contract `0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174`)
   </Tab>
   <Tab title="Kalshi">
     - SOL on Solana mainnet for transaction fees (~0.01 SOL)
   </Tab>
 </Tabs>
+
+## Polymarket vs Kalshi
+
+| | Polymarket | Kalshi |
+|---|---|---|
+| **Chain** | Polygon | Solana |
+| **Token standard** | ERC-1155 (CTF) | SPL tokens |
+| **Currency received** | USDC.e | USDC |
+| **Gas token** | POL | SOL |
+| **SDK auto-redeem** | Yes (`auto_redeem()`) | Not yet — manual only |
+| **Auth** | API key | Dynamic JWT (dashboard) |
+
+<Note>
+Kalshi redemption currently requires a Dynamic JWT (browser session). SDK-based auto-redeem for Kalshi is planned but not yet available. For now, redeem Kalshi positions from the dashboard.
+</Note>
 
 ## Troubleshooting: "Why Are My Positions Still Active?"
 
@@ -168,6 +242,16 @@ Your agent can check whether a position is actually ready to redeem:
 <Warning>
   Settlement timing is controlled entirely by the venue (Polymarket/Kalshi), not by Simmer. Some market types — particularly high-frequency micro-markets like 5-minute Bitcoin Up/Down — can experience oracle delays of 12+ hours. This is a known Polymarket behavior, not a bug.
 </Warning>
+
+### Common Errors
+
+**"On-chain token balance is 0"** — The position was already redeemed (possibly by another tool or wallet interface). The server marks it as claimed automatically.
+
+**"Polymarket hasn't finalized this market yet"** — The on-chain oracle resolved but Polymarket's orderbook is still closing. Wait 10-30 minutes and retry.
+
+**"Your YES/NO position lost"** — You're trying to redeem the losing side. Only the winning side has value.
+
+**Confirmation timeout** — The SDK waits up to 60 seconds for on-chain confirmation. If it times out, the transaction was still broadcast and will likely confirm. Check the tx hash on [Polygonscan](https://polygonscan.com).
 
 ### What If Settlement Is Taking Too Long?
 

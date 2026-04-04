@@ -216,9 +216,31 @@ Before selling on Polymarket: verify the market is still active, you have at lea
 
 ### Redeem (resolved markets)
 
-After a market resolves, winning positions can be redeemed to collect your payout. By default, auto-redeem handles this automatically.
+After a market resolves, redeem winning positions to collect your payout. For external wallets, the SDK handles a 3-step flow (get unsigned tx, sign locally, broadcast, report) — see the full [Redemption guide](/redemption) for details.
 
-See the full [Redemption Guide](/redemption) for details on the position lifecycle, auto-redeem configuration, manual redemption, and troubleshooting settlement delays.
+<Tabs>
+  <Tab title="Python (recommended)">
+    ```python
+    # auto_redeem() handles the full flow for both wallet types
+    results = client.auto_redeem()
+    for r in results:
+        if r["success"]:
+            print(f"Redeemed {r['market_id']}: tx={r['tx_hash']}")
+    ```
+  </Tab>
+  <Tab title="curl (managed wallets only)">
+    ```bash
+    curl -X POST https://api.simmer.markets/api/sdk/redeem \
+      -H "Authorization: Bearer \$SIMMER_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"market_id": "MARKET_ID", "side": "yes"}'
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+External wallet users: see [Redemption > Building your own signing flow](/redemption#building-your-own-signing-flow) if you're not using the Python SDK.
+</Tip>
 
 ### Automated exits
 
