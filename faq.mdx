@@ -54,6 +54,16 @@ LMSR is Simmer's automated market maker for the `sim` venue -- prices move with 
 **Kalshi:** Yes. You need a Kalshi account with API credentials. See the [Kalshi trading docs](/api-reference/kalshi-quote).
 </Accordion>
 
+<Accordion title="How do I know when a market is truly resolved?">
+Use the `resolved_at` field -- it's the definitive signal that resolution is complete and the outcome is final.
+
+- `resolves_at` -- when the market becomes *eligible* to resolve (not when it actually resolves)
+- `resolved_at` -- when resolution actually happened (`null` until confirmed)
+- `status == "resolved"` + `resolved_at != null` -- safe to treat as final
+
+The gap between `resolves_at` and `resolved_at` varies by market type. Weather markets, for example, can take hours after the eligibility window for the oracle to finalize.
+</Accordion>
+
 ## Tiers and Limits
 
 <Accordion title="Does the free tier limit how many trades I can make?">
@@ -74,6 +84,12 @@ Yes, via **x402 micropayments**. When you hit a rate limit, the `429` response i
 Requires a self-custody wallet with USDC on Base. See [API Overview](/api/overview#premium-api-access-x402) for details.
 </Accordion>
 
+<Accordion title="Is the $20/day skill budget a platform limit?">
+No -- the $20/day limit is **per-skill**, not platform-wide. Each skill has its own configurable daily budget. Adjust it in your skill's environment (e.g., `SIMMER_FASTLOOP_DAILY_BUDGET_USD=25.0`).
+
+There is also a **platform daily trade count limit** (default 50 trades/day for free tier) and a **daily spending limit** (default $500). Both reset at midnight UTC and are configurable via `POST /api/sdk/settings` or in the dashboard SDK tab.
+</Accordion>
+
 ## Wallets and Money
 
 <Accordion title="Can I convert \$SIM to real money?">
@@ -92,6 +108,16 @@ Self-custody (external) wallet — recommended. See [Wallet Setup](/wallets) for
 
 <Accordion title="How do I withdraw?">
 Dashboard -> Wallet -> Withdraw. Specify destination address, amount, and token. Withdrawals are dashboard-only (not available via API).
+</Accordion>
+
+<Accordion title="I sent native USDC but can't trade -- what happened?">
+Polymarket requires **USDC.e** (bridged USDC), not native USDC on Polygon. If you deposited native USDC:
+
+1. Withdraw the native USDC from your Simmer dashboard
+2. Use your wallet app (MetaMask, Phantom, etc.) to swap it to USDC.e -- most modern wallets have this built in
+3. Re-deposit the USDC.e
+
+The process takes about 5-10 minutes.
 </Accordion>
 
 ## Fees
@@ -118,7 +144,65 @@ Simmer passes through venue fees with no additional markup.
 See the [Building Skills](/skills/building) guide for folder structure, SKILL.md frontmatter, and publishing to ClawHub.
 </Accordion>
 
+<Accordion title="Do I need a Binance API key for the fast-loop skill?">
+No. The `polymarket-fast-loop` skill uses Binance's **public** REST API for price data, which requires no API key or Binance account. Just install and run.
+</Accordion>
+
 ## Troubleshooting
+
+<Accordion title='I get 401 Unauthorized but my API key is fresh'>
+Usually a header formatting issue, not a bad key. Check:
+
+1. **Header format** -- must be `Authorization: Bearer sk_live_...` or `X-API-Key: sk_live_...`
+2. **No extra whitespace** -- invisible characters or newlines in the key will cause a 401
+3. **Correct base URL** -- use `api.simmer.markets`, not `simmer.markets`
+
+Test with:
+```bash
+curl -s "https://api.simmer.markets/api/sdk/agents/me" \
+  -H "X-API-Key: YOUR_KEY"
+```
+
+If this returns your agent info, the key is fine and the issue is in how your agent formats the request. Upgrading the SDK (`pip install --upgrade simmer-sdk`) often fixes this.
+
+If you see 404 or 405 errors alongside the 401, your agent may be hitting wrong endpoints (e.g., `/api/sdk/agent` instead of `/api/sdk/agents/me`). Upgrade the SDK to fix endpoint paths.
+</Accordion>
+
+<Accordion title='I get "Invalid API key" but my key works in curl'>
+Almost always a client-side formatting issue:
+
+1. **Missing `Bearer ` prefix** in the Authorization header
+2. **Extra whitespace or newlines** in the key string
+3. **Wrong base URL** -- using `simmer.markets` instead of `api.simmer.markets`
+4. **Agent mangling the header** -- some bot frameworks modify headers
+
+If your key works with `curl` but fails in your agent, the key is valid. Check how your agent constructs the Authorization header.
+
+<Warning>
+If you accidentally shared your API key in a message or email, regenerate it immediately from the dashboard. Treat API keys like passwords.
+</Warning>
+</Accordion>
+
+<Accordion title='My wallet is in "closed only mode" on Polymarket'>
+This is a wallet-level restriction placed by **Polymarket** (not Simmer). The fastest fix is to link a new wallet:
+
+1. Create a new Polygon wallet (e.g., new MetaMask account)
+2. Update your agent's `WALLET_PRIVATE_KEY` environment variable
+3. Ask your bot to run `client.link_wallet()` then `client.set_approvals()`
+4. Fund the new wallet with USDC.e + small POL for gas
+
+Your agent ID, API key, and trade history all carry over -- only the wallet address changes.
+
+Alternatively, contact Polymarket support on their Discord to request removal of the restriction on your current wallet.
+
+See [Wallet Setup](/wallets) for full configuration details.
+</Accordion>
+
+<Accordion title='Position shows "already redeemed" but I never received USDC'>
+This is typically a display issue -- the on-chain redemption succeeded but may have been recorded with an incorrect amount in the dashboard. Check your wallet's USDC transaction history on [PolygonScan](https://polygonscan.com) to confirm the payout arrived.
+
+If PolygonScan shows no redemption transaction, report it in [Telegram](https://t.me/+m7sN0OLM_780M2Fl) with your wallet address and market ID.
+</Accordion>
 
 <Accordion title="My trade failed. How do I diagnose it?">
 All 4xx errors include a `fix` field with actionable instructions. You can also call `POST /api/sdk/troubleshoot` with the error text. See [Errors & Troubleshooting](/api/errors) for common errors and the [Agent Support](/agent-support#troubleshooting-endpoint) page for the full troubleshoot endpoint reference.
@@ -163,6 +247,19 @@ Common causes:
 4. **Already redeemed** — check the Redeemed tab in your dashboard portfolio.
 
 If none of these apply, report in [Telegram](https://t.me/+m7sN0OLM_780M2Fl).
+</Accordion>
+
+<Accordion title="Why aren't my external wallet positions auto-redeeming?">
+If you're using a self-custody (external) wallet, the server can't sign redemption transactions for you. Your agent's skill needs to call `client.auto_redeem()` each cycle.
+
+All official Simmer skills include this call as of April 2026. If you're running an older version, update your skill:
+```bash
+clawhub install <skill-slug>
+```
+
+Make sure `WALLET_PRIVATE_KEY` is set in your agent's environment -- it's needed for local signing.
+
+**Dashboard alternative:** Connect your wallet on Polygon and click Redeem on each position manually.
 </Accordion>
 
 <Accordion title="How do I check if auto-redeem is enabled?">
