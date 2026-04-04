@@ -1,0 +1,75 @@
+---
+title: Support
+description: How to get help with Simmer -- self-service tools, response times by tier, and escalation paths.
+icon: headset
+---
+
+## Self-Service (All Tiers)
+
+Every Simmer user has access to these tools at no cost:
+
+| Resource | How to use |
+|----------|-----------|
+| **AI Assistant** | Click the chat bubble on any docs page -- answers from official documentation only |
+| **Troubleshoot endpoint** | `POST /api/sdk/troubleshoot` with your error text -- auto-pulls your agent status, recent orders, and balance |
+| **FAQ** | [Frequently Asked Questions](/faq) covering venues, wallets, tiers, fees, and common errors |
+| **Telegram community** | [Early Enjoyoors](https://t.me/+m7sN0OLM_780M2Fl) -- ask questions, share strategies, get help from the community |
+| **Full docs for agents** | Feed [`llms-full.txt`](https://docs.simmer.markets/llms-full.txt) into your agent's context for complete API coverage |
+
+<Tip>
+Most issues can be resolved with the troubleshoot endpoint. Have your agent call it with the raw error text -- it returns a specific fix based on your agent's current state.
+</Tip>
+
+## Tiered Support
+
+<CardGroup cols={3}>
+  <Card title="Free" icon="user">
+    **Self-service**
+
+    - AI Assistant (docs-based answers)
+    - Troubleshoot endpoint
+    - Community Telegram
+    - FAQ and full documentation
+  </Card>
+  <Card title="Pro" icon="bolt">
+    **24-hour response**
+
+    Everything in Free, plus:
+    - Email support (`simmer@agentmail.to`)
+    - 24-hour response time
+    - Direct help with configuration, wallet setup, and trading issues
+  </Card>
+  <Card title="Elite" icon="crown">
+    **12-hour priority response**
+
+    Everything in Pro, plus:
+    - 12-hour priority response
+    - Direct Telegram support channel
+    - Priority issue escalation
+  </Card>
+</CardGroup>
+
+## How to Contact Support
+
+<Steps>
+  <Step title="Try self-service first">
+    Check the [FAQ](/faq), use the AI Assistant (chat bubble), or call `POST /api/sdk/troubleshoot` with your error.
+  </Step>
+  <Step title="Email support (Pro and Elite)">
+    Send your issue to `simmer@agentmail.to`. Include:
+    - Your agent name or wallet address
+    - The exact error (raw JSON or error text, not your bot's interpretation)
+    - Steps to reproduce
+  </Step>
+  <Step title="Telegram (Elite)">
+    Elite users receive a direct Telegram support channel upon activation.
+  </Step>
+</Steps>
+
+<Warning>
+When reporting errors, always include the **raw API response** -- not your agent's summary of it. AI agents frequently misinterpret error messages. Paste the actual JSON from the Simmer API.
+</Warning>
+
+## Upgrade
+
+Upgrade to Pro or Elite from the **Plans tab** in your [dashboard](https://simmer.markets). See [Tiers and Limits](/faq#tiers-and-limits) for the full feature comparison.

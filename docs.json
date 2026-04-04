@@ -45,6 +45,7 @@
             "group": "Reference",
             "pages": [
               "agent-support",
+              "support",
               "faq",
               "links"
             ]
@@ -256,6 +257,16 @@
       "claude",
       "cursor"
     ]
+  },
+  "chat": {
+    "enabled": true,
+    "openByDefault": false,
+    "style": "pill"
+  },
+  "analytics": {
+    "mintlify": {
+      "enabled": true
+    }
   },
   "footer": {
     "socials": {
