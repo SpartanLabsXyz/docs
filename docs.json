@@ -258,16 +258,6 @@
       "cursor"
     ]
   },
-  "chat": {
-    "enabled": true,
-    "openByDefault": false,
-    "style": "pill"
-  },
-  "analytics": {
-    "mintlify": {
-      "enabled": true
-    }
-  },
   "footer": {
     "socials": {
       "x": "https://x.com/simmer_markets",
